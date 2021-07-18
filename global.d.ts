@@ -1,7 +1,7 @@
 //import dispatch from "./dispatch";
 
-import { Memory, CreepMemory } from "./node_modules/@types/screeps/index.d.ts"
-
+// import { Memory, CreepMemory } from "./node_modules/@types/screeps/index.d.ts"
+export {}
 
 interface WorkPos {
     x: number,
@@ -33,7 +33,7 @@ declare global {
                     id: string,
                     resourceType: MineralConstant,
                     harvestPos: WorkPos,
-                    containerId?: stirng
+                    containerId?: string
                 }
                 upgrade?: {
                     workPos: WorkPos,

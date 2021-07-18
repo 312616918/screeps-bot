@@ -32,17 +32,17 @@ var upgrade = {
                 },
                 bakTick: 50
             },
-            {
-                name: "Harvester-03",
-                body: [WORK, WORK, WORK, WORK, WORK, 
-                    MOVE, MOVE
-                ],
-                memory: {
-                    workPos: new RoomPosition(33, 16, "W3N15"),
-                    sourceId: "5bbcb2b540062e4259e93cc7"
-                },
-                bakTick: 20
-            },
+            // {
+            //     name: "Harvester-03",
+            //     body: [WORK, WORK, WORK, WORK, WORK,
+            //         MOVE, MOVE
+            //     ],
+            //     memory: {
+            //         workPos: new RoomPosition(33, 16, "W3N15"),
+            //         sourceId: "5bbcb2b540062e4259e93cc7"
+            //     },
+            //     bakTick: 20
+            // },
             {
                 name: "Harvester-04",
                 body: [WORK, WORK, WORK, WORK, 
@@ -262,6 +262,12 @@ var upgrade = {
                 priority: 2,
                 spawnNames: [creepPlan[i].spawnName == undefined ? "Spawn2" : creepPlan[i].spawnName]
             }
+
+            // if(_.indexOf(template.body,CARRY)!=-1){
+            //     template.body=[WORK,CARRY,MOVE];
+            // }else{
+            //     template.body=[WORK,WORK,MOVE];
+            // }
 
             spawn.reserveCreepBak(template, creepPlan[i].bakTick);
         }

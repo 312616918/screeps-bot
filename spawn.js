@@ -17,7 +17,7 @@ module.exports = {
             return;
         }
         let spwan = Game.spawns[template.spawnNames[0]];
-        if (!spwan.isActive()) {
+        if (!spwan|| !spwan.isActive()) {
             console.log("[warning]:spawn " + template.spawnNames[0] + " is not active!")
             let fac = Memory.facility;
             let rName = null;
@@ -29,11 +29,14 @@ module.exports = {
                     }
                 }
             }
-            for(let i in fac[rName].spawnNames){
-                if (Game.spawns[fac[rName].spawnNames[i]].isActive()) {
-                    template.spawnNames[0] = fac[rName].spawnNames[i];
+            if(rName!=null){
+                for(let i in fac[rName].spawnNames){
+                    if (Game.spawns[fac[rName].spawnNames[i]].isActive()) {
+                        template.spawnNames[0] = fac[rName].spawnNames[i];
+                    }
                 }
             }
+
         }
 
 
@@ -43,13 +46,19 @@ module.exports = {
 
         console.log("[SpawnCreep]:" + template.name + "-reserve");
         for (let i in template.spawnNames) {
-            let sName = template.spawnNames[i];
-            if (Game.spawns[sName].spawning) {
-                continue;
+            try {
+                let sName = template.spawnNames[i];
+                if (Game.spawns[sName].spawning) {
+                    continue;
+                }
+                if (this.spawnsPlan[sName] == undefined || template.priority < this.spawnsPlan[sName].priority) {
+                    this.spawnsPlan[sName] = template;
+                }
+            } catch (error) {
+                console.log(error);
+                console.log(template.spawnNames[i]+"error")
             }
-            if (this.spawnsPlan[sName] == undefined || template.priority < this.spawnsPlan[sName].priority) {
-                this.spawnsPlan[sName] = template;
-            }
+
         }
     },
 

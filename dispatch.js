@@ -158,7 +158,7 @@ let resAmount = {
 let supplyConfig = {
     "W3N15": {
         supply: {
-            "X": 200000,
+            "X": 250000,
             "energy": 20000,
             "XKH2O": 40000,
             "XKHO2": 20000

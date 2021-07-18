@@ -155,17 +155,26 @@ var upgrade = {
         ]
         // return;
         for (let i in creepPlan) {
-            if (Game.creeps[creepPlan[i].name]) {
-                continue;
+
+            try {
+                            
+                if (Game.creeps[creepPlan[i].name]) {
+                    continue;
+                }
+                if (Game.spawns[creepPlan[i].spawnName].spawnCreep([WORK,CARRY,MOVE], creepPlan[i].name, {
+                        memory: creepPlan[i].memory
+                    }) != OK) {
+                    console.log("[SpawnCreep]:" + creepPlan[i].name + "-wait");
+                } else {
+                    console.log("[SpawnCreep]:" + creepPlan[i].name + "-OK");
+                };
+                break;
+            } catch (error) {
+                console.log(error);
+                console.log("[SpawnCreep]:" + creepPlan[i].name + "-error");
             }
-            if (Game.spawns[creepPlan[i].spawnName].spawnCreep(creepPlan[i].body, creepPlan[i].name, {
-                    memory: creepPlan[i].memory
-                }) != OK) {
-                console.log("[SpawnCreep]:" + creepPlan[i].name + "-wait");
-            } else {
-                console.log("[SpawnCreep]:" + creepPlan[i].name + "-OK");
-            };
-            break;
+            
+
         }
 
     },

@@ -22,7 +22,7 @@ var carry = {
         var creepPlan = [{
             namePrefix: "Carrier-A-",
             spawnName: "Spawn1",
-            amount: 6,
+            amount: 8,
             body: [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
             memory: {
                 workRoom: "W3N15"
@@ -46,7 +46,7 @@ var carry = {
         }, {
             namePrefix: "Carrier-W3N19-",
             spawnName: "Spawn6",
-            amount: 4,
+            amount: 2,
             body: [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
             memory: {
                 workRoom: "W3N19"
@@ -54,7 +54,7 @@ var carry = {
         }, {
             namePrefix: "Carrier-W7N16-",
             spawnName: "Spawn7",
-            amount: 6,
+            amount: 2,
             body: [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
             memory: {
                 workRoom: "W7N16"

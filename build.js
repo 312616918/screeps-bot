@@ -19,9 +19,9 @@ var build = {
                  */
                 let plan = {
                     name: "Builder-" + roomName,
-                    body: [WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,
-                        MOVE,MOVE
+                    body: [WORK,
+                        CARRY,CARRY,
+                        MOVE
                     ],
                     memory: {
                         roomName: roomName,
