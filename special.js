@@ -273,6 +273,19 @@ var special = {
             // }
             return;
         }
+        if (creep.name.indexOf("-Cxx") != -1) {
+
+            let f=Game.flags["Flag1"];
+            if(!f){
+                return;
+            }
+            creep.moveTo(Game.flags["Flag1"], {
+                visualizePathStyle: {
+                    stroke: '#ffaa00'
+                }
+            });
+            return;
+        }
 
         if (creep.memory.workPos) {
             let tarPos = new RoomPosition(creep.memory.workPos.x, creep.memory.workPos.y, creep.memory.workPos.roomName);

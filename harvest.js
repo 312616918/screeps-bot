@@ -289,6 +289,7 @@ var upgrade = {
         }
 
         if (target.mineralAmount != undefined) {
+            return;
             let mineralNode = fac[target.pos.roomName].mineral;
             let workPos = new RoomPosition(mineralNode.harvestPos.x, mineralNode.harvestPos.y, mineralNode.harvestPos.roomName);
 

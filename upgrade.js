@@ -161,7 +161,7 @@ var upgrade = {
                 if (Game.creeps[creepPlan[i].name]) {
                     continue;
                 }
-                if (Game.spawns[creepPlan[i].spawnName].spawnCreep([WORK,CARRY,MOVE], creepPlan[i].name, {
+                if (Game.spawns[creepPlan[i].spawnName].spawnCreep(creepPlan[i].body, creepPlan[i].name, {
                         memory: creepPlan[i].memory
                     }) != OK) {
                     console.log("[SpawnCreep]:" + creepPlan[i].name + "-wait");

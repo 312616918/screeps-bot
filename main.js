@@ -10,6 +10,7 @@ var invade = require("./invade")
 var special = require("./special")
 var build = require("./build")
 var facility = require("./facility")
+var group = require("./group")
 // var xcreep=require("./creep")
 
 const spawn = require("./spawn");
@@ -30,6 +31,18 @@ module.exports.loop = function () {
 }
 
 function main() {
+
+
+    try {           
+        group.run([Game.creeps["c0"],Game.creeps["c1"]]);
+        // Game.spawns["Spawn6"].spawnCreep([MOVE],"Special-Cxx"+Game.time);
+    } catch (error) {
+        console.log(error)
+    }
+
+
+
+
     // Game.getObjectById("5f8d3250f7e995656938a170").send("OH",1000,"W2N16")
     if (Game.cpu.bucket > 9000) {
         Game.cpu.generatePixel();

@@ -46,7 +46,7 @@ var carry = {
         }, {
             namePrefix: "Carrier-W3N19-",
             spawnName: "Spawn6",
-            amount: 2,
+            amount: 4,
             body: [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
             memory: {
                 workRoom: "W3N19"

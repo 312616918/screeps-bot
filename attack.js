@@ -1,9 +1,5 @@
 // var finfra = require("./infra");
 
-const {
-    curryRight
-} = require("lodash");
-
 
 var attack = {
 
