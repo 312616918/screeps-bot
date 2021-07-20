@@ -1,7 +1,7 @@
 //@ts-check
 
-var spawn = require("./spawn")
-var carry = require("./carry")
+var spawn = require("../spawn")
+var carry = require("../carry")
 var tran=require("./transaction")
 
 /**

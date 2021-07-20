@@ -1,5 +1,5 @@
 //@ts-check
-var spawn = require("./spawn")
+var spawn = require("../spawn")
 
 var build = {
 
