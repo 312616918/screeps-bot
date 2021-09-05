@@ -177,7 +177,7 @@ export class Carry extends BaseModule {
         this.creepNameSet.delete(creepName);
     }
 
-    protected addCarryReq(obj: ObjectWithPos,
+    public addCarryReq(obj: ObjectWithPos,
                           carryType: CarryTaskType,
                           resourceType: ResourceConstant,
                           amount: number): void {
