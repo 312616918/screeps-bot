@@ -1,5 +1,5 @@
 //@ts-check
-const spawn = require("./spawn");
+const spawn = require("../spawn");
 
 var upgrade = {
 

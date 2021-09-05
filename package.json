@@ -9,7 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/lodash": "^4.14.170",
-    "@types/screeps": "^3.2.2"
+    "@types/lodash": "^4.14.171",
+    "@types/screeps": "^3.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^16.7.10"
   }
 }

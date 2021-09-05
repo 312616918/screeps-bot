@@ -1,7 +1,7 @@
 //@ts-check
-var carry = require("./carry")
-var upgrade = require("./upgrade")
-var harvest = require("./harvest")
+var carry = require("../carry")
+var upgrade = require("../upgrade")
+var harvest = require("../harvest")
 var attack = require("./attack")
 var remoteHarvest = require("./remoteHarvest")
 var remoteCarry = require("./remoteCarry")
@@ -9,11 +9,11 @@ var dispatch = require("./dispatch")
 var invade = require("./invade")
 var special = require("./special")
 var build = require("./build")
-var facility = require("./facility")
+var facility = require("../facility")
 var group = require("./group")
 // var xcreep=require("./creep")
 
-const spawn = require("./spawn");
+const spawn = require("../spawn");
 
 
 const profiler = require('./screeps-profiler');

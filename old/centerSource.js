@@ -1,6 +1,6 @@
 //@ts-check
 
-var spawn = require("./spawn")
+var spawn = require("../spawn")
 
 let config={
     "5bbcaca69099fc012e635f07":{
