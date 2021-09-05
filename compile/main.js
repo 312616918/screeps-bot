@@ -4,7 +4,9 @@ const config_1 = require("./config");
 const harvest_1 = require("./harvest");
 const upgrade_1 = require("./upgrade");
 const carry_1 = require("./carry");
+const facility_1 = require("./facility");
 module.exports.loop = function () {
+    facility_1.Facility.refresh();
     for (let roomNameStr in config_1.RoomName) {
         let roomName = roomNameStr;
         let harvestModule = new harvest_1.Harvest(roomName);
