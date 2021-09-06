@@ -5,7 +5,8 @@ import {RoomName} from "./config";
 import {CarryCreepMemory, CarryMemory} from "./carry";
 import {FacilityMemory} from "./facility";
 import {HarvestMemory} from "./harvest";
-import {UpgradeMemory} from "./upgrade";
+import {UpgradeCreepMemory, UpgradeMemory} from "./upgrade";
+import {BuildCreepMemory, BuildMemory} from "./build";
 
 export {}
 
@@ -32,6 +33,8 @@ declare global {
         harvest: HarvestMemory;
         //升级模块
         upgrade: UpgradeMemory;
+        //建造模块
+        build:BuildMemory;
     }
 
     //繁殖接口
@@ -56,11 +59,10 @@ declare global {
             workPos?: RoomPosition;//属性缺失表示就位
         }
         //建造creep
-        build?: {
-            targetId: string;
-            energyReq: number;
-            energyRes: number;
-        }
+        build?: BuildCreepMemory;
+
+        //升级creep
+        upgrade?:UpgradeCreepMemory;
     }
 
     type LabConfig = {

@@ -1,13 +1,16 @@
 export class Spawn {
-    private static spawnMap: Map<string, SpawnTemplate>; //spawnName->plan
+    private static spawnMap: {
+        [spawnName: string]: SpawnTemplate
+    }={}; //spawnName->plan
 
     public static reserveCreep(template: SpawnTemplate) {
+        // console.log("spawn:{}", template.name);
         if (Game.creeps[template.name]) {
-            console.warn(`${template.name} is existed`);
+            console.log(`${template.name} is existed`);
             return;
         }
         if (template.spawnNames.length == 0) {
-            console.warn("spawnNames is empty");
+            console.log("spawnNames is empty");
             return;
         }
         if (template.bakTick) {
@@ -41,24 +44,26 @@ export class Spawn {
                 console.log(`${spawnName} is busy`);
                 continue;
             }
-            let reservedPlan = this.spawnMap.get(spawnName);
+            let reservedPlan = Spawn.spawnMap[spawnName];
             if (!reservedPlan || reservedPlan.priority < template.priority) {
-                this.spawnMap.set(spawnName, template);
+                Spawn.spawnMap[spawnName] = template;
                 console.log(`${template.name} reserved`);
             }
+            // console.log(JSON.stringify(Spawn.spawnMap));
         }
     }
 
     public static spawnCreep() {
-        for (let spawnName in this.spawnMap) {
-            let template = this.spawnMap.get(spawnName);
+        console.log(JSON.stringify(Spawn.spawnMap));
+        for (let spawnName in Spawn.spawnMap) {
+            let template = Spawn.spawnMap[spawnName];
             let res = Game.spawns[spawnName].spawnCreep(template.body, template.name, {
                 memory: template.memory
             });
             console.log("[SpawnCreep]:" + template.name + "-" + res);
 
         }
-        this.spawnMap.clear();
+        Spawn.spawnMap = {};
     }
 
     public static show() {

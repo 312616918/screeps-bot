@@ -2,7 +2,7 @@ import {RoomName} from "./config";
 
 export abstract class BaseModule{
     protected readonly roomName:RoomName;
-    protected creepNameSet:Set<string>;
+    protected creepNameList:string[];
 
     protected constructor(roomName:RoomName) {
         this.roomName=roomName;

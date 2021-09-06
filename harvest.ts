@@ -1,11 +1,12 @@
 import {BaseModule} from "./baseModule";
 import {RoomName} from "./config";
 import {Spawn} from "./spawn";
+import * as _ from "lodash";
 
 
 export type HarvestMemory = {
     [roomName in RoomName]?: {
-        creepNameSet: Set<string>;
+        creepNameList: string[];
     }
 }
 
@@ -21,7 +22,7 @@ export type HarvestCreepMemory = {
 export class Harvest extends BaseModule {
 
     protected readonly roomName: RoomName;
-    protected creepNameSet: Set<string>;
+    protected creepNameList: string[];
 
     constructor(roomName: RoomName) {
         super(roomName);
@@ -30,16 +31,16 @@ export class Harvest extends BaseModule {
         }
         if (!Memory.harvest[this.roomName]) {
             Memory.harvest[this.roomName] = {
-                creepNameSet: new Set<string>()
+                creepNameList: []
             }
         }
         let roomMemory = Memory.harvest[this.roomName];
-        this.creepNameSet = roomMemory.creepNameSet;
+        this.creepNameList = roomMemory.creepNameList;
     }
 
     protected spawnCreeps() {
         let targetsInfo = Memory.facility[this.roomName].sources;
-        if (this.creepNameSet.size >= 1) {
+        if (this.creepNameList.length >= 1) {
             return;
         }
         let room = Game.rooms[this.roomName];
@@ -58,39 +59,48 @@ export class Harvest extends BaseModule {
             },
             name: creepName,
             priority: 0,
-            spawnNames: []
+            spawnNames: ["Spawn-W23S23-01"]
         })
-        this.creepNameSet.add(creepName);
+        this.creepNameList.push(creepName);
     }
 
     protected recoveryCreep(creepName: string) {
         delete Memory.creeps[creepName];
-        this.creepNameSet.delete(creepName);
+        _.remove(this.creepNameList, function (e) {
+            return e == creepName;
+        })
     }
 
     run() {
-        this.spawnCreeps()
 
-        for (let creepName of this.creepNameSet) {
+        for (let creepName of this.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;
             }
             let creep = Game.creeps[creepName];
-            var target = Game.getObjectById<StructureController>(creep.memory.harvest.targetId);
+            var target = Game.getObjectById<Source>(creep.memory.harvest.targetId);
             if (!target) {
                 return;
             }
-            let workPos = creep.memory.harvest.workPos;
-            if (creep.pos.getRangeTo(workPos)) {
-                creep.moveTo(workPos, {
-                    visualizePathStyle: {
-                        stroke: '#ffffff'
-                    }
-                });
-                return;
+            let pos = creep.memory.harvest.workPos;
+            if(pos){
+                // let workPos = pos;
+                let workPos = new RoomPosition(pos.x, pos.y, pos.roomName);
+                if (creep.pos.getRangeTo(workPos)) {
+                    creep.moveTo(workPos, {
+                        visualizePathStyle: {
+                            stroke: '#ffffff'
+                        }
+                    });
+                    return;
+                }
+                delete creep.memory.harvest["workPos"];
             }
-            creep.upgradeController(target);
+
+            creep.harvest(target);
         }
+
+        this.spawnCreeps()
     }
 }

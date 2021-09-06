@@ -1,11 +1,11 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "es2020",
+        "target": "ES6",
         "jsx": "preserve",
         "strictFunctionTypes": true,
         "sourceMap": true,
-        "outDir": "compile"
+        "outDir": "C:\\Users\\31261\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default"
     },
     "exclude": [
         "node_modules",

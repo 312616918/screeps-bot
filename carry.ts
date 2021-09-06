@@ -1,6 +1,7 @@
 import {BaseModule} from "./baseModule";
 import {config, RoomName} from "./config";
 import {Spawn} from "./spawn";
+import * as _ from "lodash";
 
 type CarryTaskType = "output" | "input" | "pickup";
 type ObjectWithPos = Structure | Creep | Ruin | Resource | Tombstone;
@@ -10,7 +11,7 @@ type ObjectWithPos = Structure | Creep | Ruin | Resource | Tombstone;
  */
 export type CarryMemory = {
     [roomName in RoomName]?: {
-        creepNameSet: Set<string>;
+        creepNameList: string[];
         //任务列表
         taskMap: {
             [taskId: string]: CarryTask;
@@ -49,7 +50,11 @@ export type CarryCreepMemory = {
 export class Carry extends BaseModule {
 
     protected readonly roomName: RoomName;
-    protected creepNameSet: Set<string>;
+    protected creepNameList: string[];
+
+    public static entities:{
+        [roomName in RoomName]?:Carry
+    }={};
 
     private readonly taskMap: {
         [taskId: string]: CarryTask;
@@ -62,25 +67,24 @@ export class Carry extends BaseModule {
         }
         if (!Memory.carry[this.roomName]) {
             Memory.carry[this.roomName] = {
-                creepNameSet: new Set<string>(),
+                creepNameList: [],
                 taskMap: {}
             }
         }
         let roomMemory = Memory.carry[this.roomName];
-        this.creepNameSet = roomMemory.creepNameSet;
+        this.creepNameList = roomMemory.creepNameList;
         this.taskMap = roomMemory.taskMap;
-
-
+        Carry.entities[roomName]=this;
     }
 
     protected spawnCreeps(): void {
         let creepPlan = config.carry.creepPlan;
         let plan = creepPlan[this.roomName];
-        if (this.creepNameSet.size >= plan.amount) {
+        if (this.creepNameList.length >= plan.amount) {
             return;
         }
-        let bodyList: BodyPartConstant[]=[];
-        for (let i = 0; i < plan.amount; i++) {
+        let bodyList: BodyPartConstant[] = [];
+        for (let i = 0; i < plan.unitNumber; i++) {
             bodyList = bodyList.concat([CARRY, CARRY, MOVE])
         }
         let creepName = "carry-" + Game.time;
@@ -98,21 +102,24 @@ export class Carry extends BaseModule {
             },
             name: creepName,
             priority: 0,
-            spawnNames: []
+            spawnNames: ["Spawn-W23S23-01"]
         })
 
-        this.creepNameSet.add(creepName);
+        this.creepNameList.push(creepName);
     }
 
     public run(): void {
-        this.spawnCreeps()
-
-        for (let creepName of this.creepNameSet) {
+        for (let creepName of this.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;
             }
             let creep = Game.creeps[creepName];
+            if (!creep) {
+                console.log("undefined carry creep:{}", creepName);
+                this.recoveryCreep(creepName);
+                continue;
+            }
             let creepMemory = creep.memory.carry;
 
             if (!creepMemory.hasBusyTask) {
@@ -124,7 +131,15 @@ export class Carry extends BaseModule {
 
             let curTaskRecord = creepMemory.taskRecordList[0];
             let curTask = this.taskMap[curTaskRecord.taskId];
+            if (!curTask) {
+                this.finishTask(creepName, 0, 0);
+                continue;
+            }
             let target = Game.getObjectById<ObjectWithPos>(curTask.objId);
+            if(!target){
+                this.finishTask(creepName,0,0);
+                continue;
+            }
             creep.moveTo(target, {
                 visualizePathStyle: {
                     stroke: '#ffffff'
@@ -138,7 +153,9 @@ export class Carry extends BaseModule {
                 continue;
             }
             if (curTask.carryType == "input") {
-                let res = creep.transfer(<AnyCreep | Structure>target, curTask.resourceType, curTaskRecord.reserved);
+                let maxTranAmount=Math.min(creep.store.getUsedCapacity(curTask.resourceType),
+                    20)
+                let res = creep.transfer(<AnyCreep | Structure>target, curTask.resourceType);
                 if (res != ERR_NOT_IN_RANGE) {
                     this.finishTask(creepName, 0, curTaskRecord.reserved)
                 }
@@ -150,6 +167,13 @@ export class Carry extends BaseModule {
                     this.finishTask(creepName, 0, curTaskRecord.reserved)
                 }
                 continue;
+            }
+        }
+        this.spawnCreeps()
+        for(let taskId in this.taskMap){
+            let task=this.taskMap[taskId];
+            if(!Game.getObjectById(task.objId)){
+                delete this.taskMap[taskId];
             }
         }
     }
@@ -164,26 +188,37 @@ export class Carry extends BaseModule {
             if (creepMemory.hasBusyTask) {
                 continue;
             }
+            if (task.carryType == "pickup" || task.carryType == "output") {
+                if (creep.store.getUsedCapacity() != 0) {
+                    continue;
+                }
+            }
             this.takeTask(creep, taskId, creep.store.getCapacity());
         }
     }
 
     protected recoveryCreep(creepName: string): void {
-        let carryCreepMemory = Memory.creeps[creepName].carry;
-        for (let i = 0, len = carryCreepMemory.taskRecordList.length; i < len; i++) {
-            this.finishTask(creepName, i, 0);
+        if (Memory.creeps[creepName]) {
+            let carryCreepMemory = Memory.creeps[creepName].carry;
+            for (let i = 0, len = carryCreepMemory.taskRecordList.length; i < len; i++) {
+                this.finishTask(creepName, i, 0);
+            }
+            delete Memory.creeps[creepName];
         }
-        delete Memory.creeps[creepName];
-        this.creepNameSet.delete(creepName);
+
+        _.remove(this.creepNameList, function (e) {
+            return e == creepName;
+        })
     }
 
     public addCarryReq(obj: ObjectWithPos,
-                          carryType: CarryTaskType,
-                          resourceType: ResourceConstant,
-                          amount: number): void {
+                       carryType: CarryTaskType,
+                       resourceType: ResourceConstant,
+                       amount: number): void {
         if (!obj || !carryType || !resourceType || amount <= 0) {
             return;
         }
+        console.log("add carryReq"+carryType);
         let roomName = <RoomName>obj.pos.roomName;
         let taskId = obj.id + "#" + carryType + "#" + resourceType;
         if (!this.taskMap[taskId]) {
@@ -214,11 +249,11 @@ export class Carry extends BaseModule {
             creep.memory.carry.available[task.resourceType] = 0;
         }
         switch (task.carryType) {
-            case "input":
+            case "output":
             case "pickup":
                 creep.memory.carry.available[task.resourceType] += amount;
                 break;
-            case "output":
+            case "input":
                 creep.memory.carry.available[task.resourceType] -= amount;
                 break;
         }
@@ -233,18 +268,21 @@ export class Carry extends BaseModule {
         let carryCreepMemory = Memory.creeps[creepName].carry;
         let taskId = carryCreepMemory.taskRecordList[index].taskId;
         let task = this.taskMap[taskId];
-        let reserved = carryCreepMemory.taskRecordList[index].reserved;
-        task.reserved -= reserved;
+        if(task){
+            let reserved = carryCreepMemory.taskRecordList[index].reserved;
+            task.reserved -= reserved;
 
-        switch (task.carryType) {
-            case "input":
-            case "pickup":
-                carryCreepMemory.available[task.resourceType] -= reserved;
-                break;
-            case "output":
-                carryCreepMemory.available[task.resourceType] += reserved;
-                break;
+            switch (task.carryType) {
+                case "output":
+                case "pickup":
+                    carryCreepMemory.available[task.resourceType] -= reserved;
+                    break;
+                case "input":
+                    carryCreepMemory.available[task.resourceType] += reserved;
+                    break;
+            }
         }
+
         carryCreepMemory.taskRecordList.splice(index, 1);
         carryCreepMemory.hasBusyTask = false;
         for (let value of carryCreepMemory.taskRecordList) {
