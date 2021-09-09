@@ -181,6 +181,9 @@ export class Carry extends BaseModule {
     protected arrange(creep: Creep): void {
         for (let taskId in this.taskMap) {
             let task = this.taskMap[taskId];
+            if(task.reserved>=task.amount){
+                continue;
+            }
             let creepMemory = creep.memory.carry;
             if (creepMemory.roomName != task.roomName) {
                 continue;

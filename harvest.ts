@@ -13,8 +13,8 @@ export type HarvestMemory = {
 
 export type HarvestCreepMemory = {
     roomName: RoomName;
-
     targetId: string;
+    towerIds: string[];
     //工作地点，无此属性代表以就位
     workPosition?: RoomPosition;
 }
@@ -39,29 +39,47 @@ export class Harvest extends BaseModule {
     }
 
     protected spawnCreeps() {
-        let targetsInfo = Memory.facility[this.roomName].sources;
-        if (this.creepNameList.length >= 1) {
-            return;
+        let sourceConfig = Memory.facility[this.roomName].sources;
+        let sourceCreepTicks: {
+            [sourceId: string]: number
+        } = {};
+        for (let creepName of this.creepNameList) {
+            let creep = Game.creeps[creepName];
+            if (!creep) {
+                continue;
+            }
+            let targetId = creep.memory.harvest.targetId;
+            let beforeTicks = sourceCreepTicks[targetId];
+            let remainTicks = creep.ticksToLive;
+            if (beforeTicks == undefined || beforeTicks < remainTicks) {
+                sourceCreepTicks[targetId] = remainTicks;
+            }
         }
-        let room = Game.rooms[this.roomName];
-        let source = room.find(FIND_SOURCES)[0];
-        let creepName = "harvest-" + Game.time;
-
-        Spawn.reserveCreep({
-            bakTick: 0,
-            body: [WORK, WORK, MOVE],
-            memory: {
-                module: "harvest",
-                harvest: {
-                    targetId: source.id,
-                    workPos: targetsInfo[source.id].harvestPos
-                }
-            },
-            name: creepName,
-            priority: 0,
-            spawnNames: ["Spawn-W23S23-01"]
-        })
-        this.creepNameList.push(creepName);
+        for (let sourceId in sourceConfig) {
+            let config = sourceConfig[sourceId];
+            let remainTicks = sourceCreepTicks[sourceId];
+            if (remainTicks != undefined && remainTicks > 20) {
+                continue;
+            }
+            let creepName = "harvest-" + Game.time;
+            Spawn.reserveCreep({
+                bakTick: 0,
+                body: [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE],
+                memory: {
+                    module: "harvest",
+                    harvest: {
+                        roomName: this.roomName,
+                        targetId: sourceId,
+                        towerIds: config.towerIds,
+                        workPosition: config.harvestPos
+                    }
+                },
+                name: creepName,
+                priority: 0,
+                spawnNames: ["Spawn-W23S23-01"]
+            })
+            this.creepNameList.push(creepName);
+        }
     }
 
     protected recoveryCreep(creepName: string) {
@@ -83,8 +101,8 @@ export class Harvest extends BaseModule {
             if (!target) {
                 return;
             }
-            let pos = creep.memory.harvest.workPos;
-            if(pos){
+            let pos = creep.memory.harvest.workPosition;
+            if (pos) {
                 // let workPos = pos;
                 let workPos = new RoomPosition(pos.x, pos.y, pos.roomName);
                 if (creep.pos.getRangeTo(workPos)) {
@@ -96,6 +114,15 @@ export class Harvest extends BaseModule {
                     return;
                 }
                 delete creep.memory.harvest["workPos"];
+            }
+            let towerIds = creep.memory.harvest.towerIds;
+            if (towerIds) {
+                for (let id of towerIds) {
+                    let tower = Game.getObjectById<StructureTower>(id);
+                    if (tower.store.getFreeCapacity("energy") >= 50) {
+                        creep.transfer(tower, "energy");
+                    }
+                }
             }
 
             creep.harvest(target);

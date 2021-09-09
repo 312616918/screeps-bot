@@ -4,7 +4,7 @@
 import {RoomName} from "./config";
 import {CarryCreepMemory, CarryMemory} from "./carry";
 import {FacilityMemory} from "./facility";
-import {HarvestMemory} from "./harvest";
+import {HarvestCreepMemory, HarvestMemory} from "./harvest";
 import {UpgradeCreepMemory, UpgradeMemory} from "./upgrade";
 import {BuildCreepMemory, BuildMemory} from "./build";
 
@@ -54,10 +54,7 @@ declare global {
         //运输creep
         carry?: CarryCreepMemory;
         //开采creep
-        harvest?: {
-            targetId: string;
-            workPos?: RoomPosition;//属性缺失表示就位
-        }
+        harvest?: HarvestCreepMemory;
         //建造creep
         build?: BuildCreepMemory;
 

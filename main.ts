@@ -8,6 +8,8 @@ import {Build} from "./build";
 
 module.exports.loop = function () {
     Facility.refresh();
+    Facility.runTower();
+
     for (let roomNameStr in RoomName) {
         let roomName = <RoomName>roomNameStr;
 
@@ -34,9 +36,29 @@ module.exports.loop = function () {
             }
         }
 
-        let spawn=Game.spawns["Spawn-W23S23-01"];
-        if(spawn.store.getFreeCapacity("energy")!=0){
-            carryModule.addCarryReq(spawn,"input","energy",spawn.store.getFreeCapacity("energy"));
+        let spawn = Game.spawns["Spawn-W23S23-01"];
+        if (spawn.store.getFreeCapacity("energy") != 0) {
+            carryModule.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
         }
     }
+
+    //装载extension能量
+    let fac = Memory.facility;
+    for (let roomName in fac) {
+        let roomFac = fac[<RoomName>roomName];
+        let extensionIds = roomFac.extensionIds;
+        if (!extensionIds) continue;
+        for (let id of extensionIds) {
+            let extension = Game.getObjectById<StructureExtension>(id);
+            let freeCapacity = extension.store.getFreeCapacity("energy");
+            if (freeCapacity > 0) {
+                let carryModule = Carry.entities[<RoomName>roomName];
+                if(!carryModule){
+                    continue;
+                }
+                carryModule.addCarryReq(extension, "input", "energy", freeCapacity);
+            }
+        }
+    }
+
 }

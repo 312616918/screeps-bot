@@ -13,7 +13,7 @@ export type UpgradeMemory = {
 
 export type UpgradeCreepMemory = {
     roomName: RoomName;
-
+    index: number;
     targetId: string;
     //工作地点，无此属性代表以就位
     workPosition?: RoomPosition;
@@ -40,28 +40,50 @@ export class Upgrade extends BaseModule {
 
     protected spawnCreeps() {
 
-        if (this.creepNameList.length >= 1) {
+        let workPositions = Memory.facility[this.roomName].upgrade.wordPositions;
+        if (!workPositions) {
+            return;
+        }
+        if (this.creepNameList.length >= workPositions.length) {
             return;
         }
         let room = Game.rooms[this.roomName];
-        let creepName = "upgrade-" + Game.time;
-
-        Spawn.reserveCreep({
-            bakTick: 0,
-            body: [WORK, WORK, CARRY, MOVE],
-            memory: {
-                module: "upgrade",
-                upgrade: {
-                    roomName: this.roomName,
-                    targetId: room.controller.id,
-                    workPosition: Memory.facility[this.roomName].upgrade.workPos
+        for (let i in workPositions) {
+            let isExist = false;
+            for (let creepName of this.creepNameList) {
+                let creep = Game.creeps[creepName];
+                if (!creep) {
+                    continue;
                 }
-            },
-            name: creepName,
-            priority: 0,
-            spawnNames: ["Spawn-W23S23-01"]
-        })
-        this.creepNameList.push(creepName);
+                if (creep.memory.upgrade.index == Number.parseInt(i)) {
+                    isExist = true;
+                    break;
+                }
+            }
+            if (isExist) {
+                continue;
+            }
+            let pos = workPositions[i];
+            let creepName = "upgrade-" + Game.time + "-" + i;
+            Spawn.reserveCreep({
+                bakTick: 0,
+                body: [WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE],
+                memory: {
+                    module: "upgrade",
+                    upgrade: {
+                        roomName: this.roomName,
+                        index: Number.parseInt(i),
+                        targetId: room.controller.id,
+                        workPosition: pos
+                    }
+                },
+                name: creepName,
+                priority: 0,
+                spawnNames: ["Spawn-W23S23-01"]
+            })
+            this.creepNameList.push(creepName);
+        }
+
     }
 
     protected recoveryCreep(creepName: string) {
@@ -83,7 +105,7 @@ export class Upgrade extends BaseModule {
             if (!target) {
                 return;
             }
-            console.log("up"+JSON.stringify(Carry.entities));
+            console.log("up" + JSON.stringify(Carry.entities));
             let pos = creep.memory.upgrade.workPosition;
             // let workPos = pos;
             if (pos) {
@@ -100,10 +122,11 @@ export class Upgrade extends BaseModule {
                 }
             }
             creep.upgradeController(target);
-            if (creep.store.getFreeCapacity() > 20) {
+            if (!creep.memory.upgrade.workPosition
+                && creep.store.getFreeCapacity() > 20) {
                 let carryModule = Carry.entities[this.roomName];
                 if (carryModule) {
-                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity());
+                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity() + 200);
                 }
             }
         }

@@ -1,24 +1,28 @@
 import {RoomName} from "./config";
 
-type WorkPosConfig={
-    [roomName in RoomName]:{
-        sources:RoomPosition[];
+type WorkPosConfig = {
+    [roomName in RoomName]: {
+        sources: RoomPosition[];
         // mineral:RoomPosition;
         // dispatch:RoomPosition;
-        upgrade?:RoomPosition;
+        upgrade?: RoomPosition[];
     }
 }
 
-let workPos:WorkPosConfig = {
+let workPos: WorkPosConfig = {
 
     W23S23: {
         sources: [
-            new RoomPosition(35, 27, "W23S23"),
+            new RoomPosition(37, 27, "W23S23"),
             new RoomPosition(24, 45, "W23S23"),
         ],
         // mineral: new RoomPosition(33, 16, "W23S23"),
         // dispatch: new RoomPosition(33, 34, "W23S23"),
-        upgrade: new RoomPosition(20, 33, "W23S23")
+        upgrade: [
+            new RoomPosition(19, 32, "W23S23"),
+            new RoomPosition(20, 31, "W23S23"),
+            new RoomPosition(20, 33, "W23S23")
+        ]
     }
 
     // W3N15: {
@@ -282,7 +286,7 @@ let workPos:WorkPosConfig = {
 //
 //     "OH":["H","O"]
 // }
-export type FacilityMemory={
+export type FacilityMemory = {
     [roomName in RoomName]?: {
         sources: {
             [sourceId: string]: {
@@ -300,7 +304,7 @@ export type FacilityMemory={
             containerId?: string
         }
         upgrade?: {
-            workPos: RoomPosition,
+            wordPositions: RoomPosition[],
             containerId?: string,
             linkId?: string,
             towerIds?: string[]
@@ -314,11 +318,13 @@ export type FacilityMemory={
         lab?: {
             centerIds: string[];
             subIds: string[];
-        }
+        },
+        extensionIds: string[];
     }
 }
+
 export class Facility {
-    static refresh ():void {
+    static refresh(): void {
         if (Memory.facility == undefined) {
             Memory.facility = {};
         }
@@ -452,9 +458,9 @@ export class Facility {
             // }
 
             if (roomPos.upgrade) {
-                let pos = roomPos.upgrade;
+                let pos = roomPos.upgrade[0];
                 roomFac.upgrade = {
-                    workPos: pos
+                    wordPositions: roomPos.upgrade
                 }
 
                 let containers = pos.findInRange(FIND_STRUCTURES, 1, {
@@ -526,11 +532,17 @@ export class Facility {
 
             }
 
+            //extension
+            roomFac.extensionIds = room.find(FIND_STRUCTURES,{
+                filter:(s)=>{
+                    return s.structureType ==STRUCTURE_EXTENSION;
+                }
+            }).map(s=> s.id)
 
         }
     };
 
-    runTower () :void{
+    public static runTower(): void {
         let fac = Memory.facility;
         for (let roomName in fac) {
             let roomFac = fac[roomName];
@@ -550,7 +562,7 @@ export class Facility {
                         filter: (structure) => {
                             if (structure.structureType != STRUCTURE_WALL &&
                                 structure.structureType != STRUCTURE_RAMPART) {
-                                return structure.hits < structure.hitsMax
+                                return structure.hits < structure.hitsMax - 1000;
                             }
                             return structure.hits < 20000;
                         }
@@ -745,7 +757,7 @@ export class Facility {
     //     }
     // },
 
-    show():void{
+    show(): void {
         let fac = Memory.facility;
         for (let roomName in fac) {
             let roomFac = fac[roomName];

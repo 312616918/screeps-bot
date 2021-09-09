@@ -54,7 +54,6 @@ export class Spawn {
     }
 
     public static spawnCreep() {
-        console.log(JSON.stringify(Spawn.spawnMap));
         for (let spawnName in Spawn.spawnMap) {
             let template = Spawn.spawnMap[spawnName];
             let res = Game.spawns[spawnName].spawnCreep(template.body, template.name, {

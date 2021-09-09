@@ -51,7 +51,7 @@ export class Build extends BaseModule{
 
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, WORK, CARRY, MOVE],
+            body: [WORK, CARRY, CARRY, MOVE],
             memory: {
                 module: "build",
                 build: {
@@ -98,7 +98,7 @@ export class Build extends BaseModule{
             if (creep.store.getFreeCapacity() > 20) {
                 let carryModule = Carry.entities[this.roomName];
                 if (carryModule) {
-                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity());
+                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity()+600);
                 }
             }
         }
