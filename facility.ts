@@ -398,22 +398,14 @@ export class Facility {
                     sourceNode.controllerId = room.controller.id;
                 }
             }
-
-            // if (roomPos.dispatch) {
-            //     let pos = roomPos.dispatch;
-            //
-            //     roomFac.dispatch = {
-            //         workPos: pos
-            //     };
-            //
-            //     let storages = pos.findInRange(FIND_STRUCTURES, 1, {
-            //         filter: (s) => {
-            //             return s.structureType == STRUCTURE_STORAGE
-            //         }
-            //     })
-            //     if (storages.length) {
-            //         roomFac.storageId = storages[0].id;
-            //     }
+            let storages = room.find(FIND_STRUCTURES, {
+                filter: (s) => {
+                    return s.structureType == STRUCTURE_STORAGE
+                }
+            })
+            if (storages.length) {
+                roomFac.storageId = storages[0].id;
+            }
             //
             //     let terminals = pos.findInRange(FIND_STRUCTURES, 1, {
             //         filter: (s) => {
@@ -533,11 +525,11 @@ export class Facility {
             }
 
             //extension
-            roomFac.extensionIds = room.find(FIND_STRUCTURES,{
-                filter:(s)=>{
-                    return s.structureType ==STRUCTURE_EXTENSION;
+            roomFac.extensionIds = room.find(FIND_STRUCTURES, {
+                filter: (s) => {
+                    return s.structureType == STRUCTURE_EXTENSION;
                 }
-            }).map(s=> s.id)
+            }).map(s => s.id)
 
         }
     };

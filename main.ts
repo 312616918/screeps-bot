@@ -15,6 +15,7 @@ module.exports.loop = function () {
 
         let carryModule = new Carry(roomName);
         carryModule.run();
+        carryModule.visual();
 
         let harvestModule = new Harvest(roomName);
         harvestModule.run();
@@ -29,6 +30,23 @@ module.exports.loop = function () {
         Spawn.spawnCreep();
 
         let room = Game.rooms[roomName];
+
+        let sourceConfig=Memory.facility[roomName].sources;
+        if(sourceConfig){
+            for(let sourceId in sourceConfig){
+                let config=sourceConfig[sourceId];
+                let container=Game.getObjectById<StructureContainer>(config.containerId);
+                if(!container){
+                    continue;
+                }
+                let amount=container.store.getUsedCapacity("energy");
+                if(amount<200){
+                    continue;
+                }
+                carryModule.addCarryReq(container,"output","energy",amount);
+            }
+        }
+
         let drops = room.find(FIND_DROPPED_RESOURCES);
         if (drops.length != 0) {
             for (let drop of drops) {
