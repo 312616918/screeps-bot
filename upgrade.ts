@@ -22,7 +22,8 @@ export type UpgradeCreepMemory = {
 export class Upgrade extends BaseModule {
 
     protected readonly roomName: RoomName;
-    creepNameList: string[];
+    protected creepNameList: string[];
+    protected link: StructureLink;
 
     public constructor(roomName: RoomName) {
         super(roomName);
@@ -36,6 +37,10 @@ export class Upgrade extends BaseModule {
         }
         let roomMemory = Memory.upgrade[this.roomName];
         this.creepNameList = roomMemory.creepNameList;
+        let roomFac = Memory.facility[this.roomName];
+        if (roomFac && roomFac.upgrade) {
+            this.link = Game.getObjectById(roomFac.upgrade.linkId);
+        }
     }
 
     protected spawnCreeps() {
@@ -67,7 +72,9 @@ export class Upgrade extends BaseModule {
             let creepName = "upgrade-" + Game.time + "-" + i;
             Spawn.reserveCreep({
                 bakTick: 0,
-                body: [WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE],
+                body: [WORK, WORK,
+                    CARRY,
+                    MOVE],
                 memory: {
                     module: "upgrade",
                     upgrade: {
@@ -79,7 +86,7 @@ export class Upgrade extends BaseModule {
                 },
                 name: creepName,
                 priority: 0,
-                spawnNames: ["Spawn-W23S23-01"]
+                spawnNames: ["Spawn1"]
             })
             this.creepNameList.push(creepName);
         }
@@ -94,7 +101,6 @@ export class Upgrade extends BaseModule {
     }
 
     run() {
-
         for (let creepName of this.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
@@ -105,7 +111,6 @@ export class Upgrade extends BaseModule {
             if (!target) {
                 return;
             }
-            console.log("up" + JSON.stringify(Carry.entities));
             let pos = creep.memory.upgrade.workPosition;
             // let workPos = pos;
             if (pos) {
@@ -122,13 +127,18 @@ export class Upgrade extends BaseModule {
                 }
             }
             creep.upgradeController(target);
-            if (!creep.memory.upgrade.workPosition
-                && creep.store.getFreeCapacity() > 20) {
-                let carryModule = Carry.entities[this.roomName];
-                if (carryModule) {
-                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity() + 200);
-                }
+            if (creep.store.getFreeCapacity() <= 20) {
+                continue;
             }
+            if (this.link && this.link.store.getUsedCapacity("energy") != 0) {
+                creep.withdraw(this.link, "energy");
+                continue;
+            }
+            let carryModule = Carry.entities[this.roomName];
+            if (carryModule) {
+                carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity() + 400);
+            }
+
         }
         this.spawnCreeps()
     }

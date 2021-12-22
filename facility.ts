@@ -20,8 +20,8 @@ let workPos: WorkPosConfig = {
         // dispatch: new RoomPosition(33, 34, "W23S23"),
         upgrade: [
             new RoomPosition(19, 32, "W23S23"),
-            new RoomPosition(20, 31, "W23S23"),
-            new RoomPosition(20, 33, "W23S23")
+            new RoomPosition(20, 32, "W23S23"),
+            new RoomPosition(21, 32, "W23S23")
         ]
     }
 
@@ -286,44 +286,79 @@ let workPos: WorkPosConfig = {
 //
 //     "OH":["H","O"]
 // }
+
+
 export type FacilityMemory = {
-    [roomName in RoomName]?: {
-        sources: {
-            [sourceId: string]: {
-                harvestPos: RoomPosition,
-                containerId?: string,
-                towerIds?: string[],
-                linkId?: string,
-                controllerId?: string
-            }
-        },
-        mineral?: {
-            id: string,
-            resourceType: MineralConstant,
+    [roomName in RoomName]?: RoomFacility
+}
+
+export type RoomFacility = {
+    sources: {
+        [sourceId: string]: {
             harvestPos: RoomPosition,
-            containerId?: string
-        }
-        upgrade?: {
-            wordPositions: RoomPosition[],
             containerId?: string,
+            towerIds?: string[],
             linkId?: string,
-            towerIds?: string[]
-        },
-        terminalId?: string,
-        storageId?: string,
-        centerLinkId?: string,
-        towerIds?: string[],
-        spawnNames?: string[],
-        labIds?: string[],
-        lab?: {
-            centerIds: string[];
-            subIds: string[];
-        },
-        extensionIds: string[];
+            controllerId?: string
+        }
+    },
+    mineral?: {
+        id: string,
+        resourceType: MineralConstant,
+        harvestPos: RoomPosition,
+        containerId?: string
     }
+    upgrade?: {
+        wordPositions: RoomPosition[],
+        containerId?: string,
+        linkId?: string,
+        towerIds?: string[]
+    },
+    terminalId?: string,
+    storageId?: string,
+    centerLinkId?: string,
+    towerIds?: string[],
+    spawnNames?: string[],
+    labIds?: string[],
+    lab?: {
+        centerIds: string[];
+        subIds: string[];
+    },
+    extensionIds: string[];
 }
 
 export class Facility {
+    protected roomName: RoomName;
+    protected roomFac: RoomFacility;
+
+    constructor(roomName: RoomName) {
+        this.roomName = roomName;
+        this.roomFac = Memory.facility[this.roomName];
+    }
+
+    public runLink() {
+        let sourceFac = this.roomFac.sources;
+        let sourceLinks: StructureLink[] = [];
+        for (let sourceId in sourceFac) {
+            let sourceConfig = sourceFac[sourceId];
+            let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
+            if (!link) {
+                continue;
+            }
+            sourceLinks.push(link);
+        }
+        let upgradeLink = Game.getObjectById<StructureLink>(this.roomFac.upgrade.linkId);
+        if (upgradeLink && sourceLinks.length != 0) {
+            sourceLinks.forEach(link => {
+                if (link.store.getFreeCapacity("energy") == 0
+                    && upgradeLink.store.getUsedCapacity("energy") <= 24) {
+                    link.transferEnergy(upgradeLink);
+                }
+            })
+        }
+    }
+
+
     static refresh(): void {
         if (Memory.facility == undefined) {
             Memory.facility = {};

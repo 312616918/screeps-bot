@@ -7,6 +7,8 @@ import {FacilityMemory} from "./facility";
 import {HarvestCreepMemory, HarvestMemory} from "./harvest";
 import {UpgradeCreepMemory, UpgradeMemory} from "./upgrade";
 import {BuildCreepMemory, BuildMemory} from "./build";
+import {MoveCreepMemory, MoveMemory} from "./move";
+// import {ExpandCreepMemory, ExpandMemory} from "./expand";
 
 export {}
 
@@ -34,7 +36,11 @@ declare global {
         //升级模块
         upgrade: UpgradeMemory;
         //建造模块
-        build:BuildMemory;
+        build: BuildMemory;
+        //移动控制模块
+        move: MoveMemory;
+        //扩张模块
+        // expand: ExpandMemory;
     }
 
     //繁殖接口
@@ -57,9 +63,12 @@ declare global {
         harvest?: HarvestCreepMemory;
         //建造creep
         build?: BuildCreepMemory;
-
         //升级creep
-        upgrade?:UpgradeCreepMemory;
+        upgrade?: UpgradeCreepMemory;
+        //移动属性
+        move?: MoveCreepMemory;
+        //扩张creep
+        // expand?: ExpandCreepMemory;
     }
 
     type LabConfig = {
@@ -102,6 +111,12 @@ declare global {
             amount: number;
         }
     }
+
+    interface ModuleMemory{
+        roomName: RoomName;
+        workPosition?: RoomPosition;
+    }
+
 
 
 }

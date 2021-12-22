@@ -17,7 +17,7 @@ export type BuildCreepMemory = {
 }
 
 
-export class Build extends BaseModule{
+export class Build extends BaseModule {
 
     protected readonly roomName: RoomName;
     creepNameList: string[];
@@ -41,9 +41,9 @@ export class Build extends BaseModule{
         if (this.creepNameList.length >= 1) {
             return;
         }
-        let room=Game.rooms[this.roomName];
+        let room = Game.rooms[this.roomName];
         let sites = room.find(FIND_CONSTRUCTION_SITES);
-        if (sites.length==0){
+        if (sites.length == 0) {
             return;
         }
 
@@ -51,7 +51,7 @@ export class Build extends BaseModule{
 
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, CARRY, CARRY, MOVE],
+            body: [WORK, WORK, CARRY, CARRY, CARRY, MOVE],
             memory: {
                 module: "build",
                 build: {
@@ -61,7 +61,7 @@ export class Build extends BaseModule{
             },
             name: creepName,
             priority: 0,
-            spawnNames: ["Spawn-W23S23-01"]
+            spawnNames: ["Spawn1"]
         })
         this.creepNameList.push(creepName);
     }
@@ -85,8 +85,8 @@ export class Build extends BaseModule{
             if (!target) {
                 return;
             }
-            let res=creep.build(target);
-            if(res==ERR_NOT_IN_RANGE){
+            let res = creep.build(target);
+            if (res == ERR_NOT_IN_RANGE) {
                 if (creep.pos.getRangeTo(target)) {
                     creep.moveTo(target, {
                         visualizePathStyle: {
@@ -98,11 +98,11 @@ export class Build extends BaseModule{
             if (creep.store.getFreeCapacity() > 20) {
                 let carryModule = Carry.entities[this.roomName];
                 if (carryModule) {
-                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity()+600);
+                    carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity() + 600);
                 }
             }
         }
         this.spawnCreeps()
     }
-    
+
 }

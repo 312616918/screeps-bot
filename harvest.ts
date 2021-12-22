@@ -61,10 +61,17 @@ export class Harvest extends BaseModule {
             if (remainTicks != undefined && remainTicks > 20) {
                 continue;
             }
+            let bodys = [WORK, WORK, WORK, WORK, WORK,
+                CARRY,
+                MOVE, MOVE];
+            let room = Game.rooms[this.roomName];
+            if (room.energyAvailable < 700) {
+                bodys = [WORK, WORK, CARRY, MOVE]
+            }
             let creepName = "harvest-" + Game.time;
             Spawn.reserveCreep({
                 bakTick: 0,
-                body: [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE],
+                body: bodys,
                 memory: {
                     module: "harvest",
                     harvest: {
@@ -76,7 +83,7 @@ export class Harvest extends BaseModule {
                 },
                 name: creepName,
                 priority: 0,
-                spawnNames: ["Spawn-W23S23-01"]
+                spawnNames: ["Spawn1"]
             })
             this.creepNameList.push(creepName);
         }
@@ -115,6 +122,20 @@ export class Harvest extends BaseModule {
                 }
                 delete creep.memory.harvest["workPos"];
             }
+            creep.harvest(target);
+
+            let roomFac = Memory.facility[this.roomName];
+            if (roomFac) {
+                let sourceConfig = roomFac.sources[creep.memory.harvest.targetId];
+                let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
+                if (link
+                    && link.store.getFreeCapacity("energy") > 0
+                    && creep.store.getFreeCapacity("energy") == 0) {
+                    creep.transfer(link, "energy");
+                }
+            }
+
+            //transfer tower 高优先级
             let towerIds = creep.memory.harvest.towerIds;
             if (towerIds) {
                 for (let id of towerIds) {
@@ -125,7 +146,7 @@ export class Harvest extends BaseModule {
                 }
             }
 
-            creep.harvest(target);
+
         }
 
         this.spawnCreeps()

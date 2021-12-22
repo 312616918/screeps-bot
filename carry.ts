@@ -2,6 +2,7 @@ import {BaseModule} from "./baseModule";
 import {config, RoomName} from "./config";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
+import {Move} from "./move";
 
 type CarryTaskType = "output" | "input" | "pickup";
 type ObjectWithPos = Structure | Creep | Ruin | Resource | Tombstone;
@@ -104,7 +105,7 @@ export class Carry extends BaseModule {
             },
             name: creepName,
             priority: 0,
-            spawnNames: ["Spawn-W23S23-01"]
+            spawnNames: ["Spawn1"]
         })
 
         this.creepNameList.push(creepName);
@@ -145,6 +146,10 @@ export class Carry extends BaseModule {
                         stroke: '#ffffff'
                     }
                 });
+                // let moveModule=Move.entities[this.roomName];
+                // if(moveModule){
+                //     moveModule.reserveMove(creep,this.storage.pos,1);
+                // }
                 continue;
             }
 
@@ -164,8 +169,15 @@ export class Carry extends BaseModule {
                     stroke: '#ffffff'
                 }
             });
+            // let moveModule=Move.entities[this.roomName];
+            // if(moveModule){
+            //     moveModule.reserveMove(creep,target.pos,1);
+            // }
             if (curTask.carryType == "output") {
                 let res = creep.withdraw(<Structure | Ruin | Tombstone>target, curTask.resourceType, curTaskRecord.reserved);
+                if (res == ERR_NOT_ENOUGH_RESOURCES) {
+                    res = creep.withdraw(<Structure | Ruin | Tombstone>target, curTask.resourceType);
+                }
                 if (res != ERR_NOT_IN_RANGE) {
                     this.finishTask(creepName, 0, curTaskRecord.reserved)
                 }
@@ -173,12 +185,13 @@ export class Carry extends BaseModule {
             }
             if (curTask.carryType == "input") {
                 if (creep.store.getUsedCapacity(curTask.resourceType) == 0) {
-                    if (!this.storage) {
+                    if (!this.storage || this.storage.store.getUsedCapacity(curTask.resourceType) == 0) {
                         this.finishTask(creepName, 0, curTaskRecord.reserved);
                         continue;
                     }
                     if (creep.pos.getRangeTo(this.storage) == 1) {
-                        creep.withdraw(this.storage, curTask.resourceType, curTaskRecord.reserved)
+                        creep.withdraw(this.storage, curTask.resourceType,
+                            Math.min(curTaskRecord.reserved, this.storage.store.getUsedCapacity(curTask.resourceType)))
                         continue;
                     }
                     creep.moveTo(this.storage, {
@@ -186,6 +199,10 @@ export class Carry extends BaseModule {
                             stroke: '#ffffff'
                         }
                     });
+                    // let moveModule=Move.entities[this.roomName];
+                    // if(moveModule){
+                    //     moveModule.reserveMove(creep,this.storage.pos,1);
+                    // }
                     continue;
                 }
                 let maxTranAmount = Math.min(creep.store.getUsedCapacity(curTask.resourceType),
@@ -259,7 +276,6 @@ export class Carry extends BaseModule {
         if (!obj || !carryType || !resourceType || amount <= 0) {
             return;
         }
-        console.log("add carryReq" + carryType);
         let roomName = <RoomName>obj.pos.roomName;
         let taskId = obj.id + "#" + carryType + "#" + resourceType;
         if (!this.taskMap[taskId]) {
@@ -271,7 +287,9 @@ export class Carry extends BaseModule {
                 resourceType: resourceType,
                 carryType: carryType
             }
+            return;
         }
+        this.taskMap[taskId].amount = amount;
     }
 
     protected isBusyTask(taskId: string): boolean {
@@ -340,37 +358,38 @@ export class Carry extends BaseModule {
             }
         }
     }
-    public visual():void{
-        let room=Game.rooms[this.roomName];
+
+    public visual(): void {
+        let room = Game.rooms[this.roomName];
         for (let taskId in this.taskMap) {
             let task = this.taskMap[taskId];
-            if(!task){
+            if (!task) {
                 continue;
             }
-            let obj=Game.getObjectById<ObjectWithPos>(task.objId);
-            if(!obj){
+            let obj = Game.getObjectById<ObjectWithPos>(task.objId);
+            if (!obj) {
                 continue;
             }
-            room.visual.text(task.amount+" "+task.reserved,obj.pos,{
-                font:0.25
+            room.visual.text(task.amount + " " + task.reserved, obj.pos, {
+                font: 0.25
             })
         }
-        for(let creepName of this.creepNameList){
-            let creep=Game.creeps[creepName];
-            if(!creep){
+        for (let creepName of this.creepNameList) {
+            let creep = Game.creeps[creepName];
+            if (!creep) {
                 continue;
             }
-            if(creep.memory.carry.taskRecordList.length==0){
+            if (creep.memory.carry.taskRecordList.length == 0) {
                 continue;
             }
-            let task=Memory.carry[this.roomName].taskMap[creep.memory.carry.taskRecordList[0].taskId];
-            if(!task){
+            let task = Memory.carry[this.roomName].taskMap[creep.memory.carry.taskRecordList[0].taskId];
+            if (!task) {
                 continue;
             }
-            let obj=Game.getObjectById<ObjectWithPos>(task.objId);
-            room.visual.line(creep.pos,obj.pos,{
-                color:"red",
-                lineStyle:"dashed"
+            let obj = Game.getObjectById<ObjectWithPos>(task.objId);
+            room.visual.line(creep.pos, obj.pos, {
+                color: "red",
+                lineStyle: "dashed"
             })
         }
     }
