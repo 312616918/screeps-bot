@@ -1,13 +1,14 @@
 import {BaseModule} from "./baseModule";
-import {globalConfig, RoomName} from "./globalConfig";
+import {RoomName} from "./config";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
 import {Carry} from "./carry";
-import {FacilityMemory} from "./facility";
 
 
 export type UpgradeMemory = {
-    creepNameList: string[];
+    [roomName in RoomName]?: {
+        creepNameList: string[];
+    }
 }
 
 export type UpgradeCreepMemory = {
@@ -18,31 +19,43 @@ export type UpgradeCreepMemory = {
     workPosition?: RoomPosition;
 }
 
-export class Upgrade {
+export class Upgrade extends BaseModule {
 
     protected readonly roomName: RoomName;
+    protected creepNameList: string[];
     protected link: StructureLink;
-    protected memory: UpgradeMemory;
-    protected fac: FacilityMemory;
 
-    public constructor(roomName: RoomName, m: UpgradeMemory, fac: FacilityMemory) {
-        this.roomName = roomName;
-        this.memory = m;
-        this.fac = fac;
-        if(fac.upgrade){
-            this.link = Game.getObjectById(fac.upgrade.linkId);
+    public constructor(roomName: RoomName) {
+        super(roomName);
+        if (!Memory.upgrade) {
+            Memory.upgrade = {};
+        }
+        if (!Memory.upgrade[this.roomName]) {
+            Memory.upgrade[this.roomName] = {
+                creepNameList: []
+            }
+        }
+        let roomMemory = Memory.upgrade[this.roomName];
+        this.creepNameList = roomMemory.creepNameList;
+        let roomFac = Memory.facility[this.roomName];
+        if (roomFac && roomFac.upgrade) {
+            this.link = Game.getObjectById(roomFac.upgrade.linkId);
         }
     }
 
     protected spawnCreeps() {
 
-        if (this.memory.creepNameList.length >= globalConfig[this.roomName].upgrade.creepConfigs.length) {
+        let workPositions = Memory.facility[this.roomName].upgrade.wordPositions;
+        if (!workPositions) {
+            return;
+        }
+        if (this.creepNameList.length >= workPositions.length) {
             return;
         }
         let room = Game.rooms[this.roomName];
-        for (let i in globalConfig[this.roomName].upgrade.creepConfigs) {
+        for (let i in workPositions) {
             let isExist = false;
-            for (let creepName of this.memory.creepNameList) {
+            for (let creepName of this.creepNameList) {
                 let creep = Game.creeps[creepName];
                 if (!creep) {
                     continue;
@@ -55,7 +68,7 @@ export class Upgrade {
             if (isExist) {
                 continue;
             }
-            let pos = globalConfig[this.roomName].upgrade.creepConfigs[i].pos;
+            let pos = workPositions[i];
             let creepName = "upgrade-" + Game.time + "-" + i;
             Spawn.reserveCreep({
                 bakTick: 0,
@@ -73,22 +86,22 @@ export class Upgrade {
                 },
                 name: creepName,
                 priority: 0,
-                spawnNames: this.fac.spawnNames
+                spawnNames: ["Spawn1"]
             })
-            this.memory.creepNameList.push(creepName);
+            this.creepNameList.push(creepName);
         }
 
     }
 
     protected recoveryCreep(creepName: string) {
         delete Memory.creeps[creepName];
-        _.remove(this.memory.creepNameList, function (e) {
+        _.remove(this.creepNameList, function (e) {
             return e == creepName;
         })
     }
 
     run() {
-        for (let creepName of this.memory.creepNameList) {
+        for (let creepName of this.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;

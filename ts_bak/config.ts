@@ -35,7 +35,7 @@ export const config: config = {
     carry: {
         creepPlan: {
             W23S23: {
-                amount: 12,
+                amount: 4,
                 unitNumber: 1
             }
         }

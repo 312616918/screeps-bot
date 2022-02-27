@@ -1,13 +1,14 @@
 import {BaseModule} from "./baseModule";
-import {RoomName} from "./globalConfig";
+import {RoomName} from "./config";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
 import {Carry} from "./carry";
-import {FacilityMemory} from "./facility";
 
 
 export type BuildMemory = {
-    creepNameList: string[];
+    [roomName in RoomName]?: {
+        creepNameList: string[];
+    }
 }
 
 export type BuildCreepMemory = {
@@ -16,21 +17,28 @@ export type BuildCreepMemory = {
 }
 
 
-export class Build {
+export class Build extends BaseModule {
 
     protected readonly roomName: RoomName;
-    protected memory: BuildMemory;
-    protected fac: FacilityMemory;
+    creepNameList: string[];
 
-    public constructor(roomName: RoomName, m: BuildMemory, fac: FacilityMemory) {
-        this.roomName = roomName;
-        this.memory = m;
-        this.fac = fac;
+    public constructor(roomName: RoomName) {
+        super(roomName);
+        if (!Memory.build) {
+            Memory.build = {};
+        }
+        if (!Memory.build[this.roomName]) {
+            Memory.build[this.roomName] = {
+                creepNameList: []
+            }
+        }
+        let roomMemory = Memory.build[this.roomName];
+        this.creepNameList = roomMemory.creepNameList;
     }
 
     protected spawnCreeps() {
 
-        if (this.memory.creepNameList.length >= 1) {
+        if (this.creepNameList.length >= 1) {
             return;
         }
         let room = Game.rooms[this.roomName];
@@ -43,7 +51,7 @@ export class Build {
 
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, CARRY, MOVE],
+            body: [WORK,  CARRY, MOVE],
             memory: {
                 module: "build",
                 build: {
@@ -53,21 +61,21 @@ export class Build {
             },
             name: creepName,
             priority: 0,
-            spawnNames: this.fac.spawnNames
+            spawnNames: ["Spawn1"]
         })
-        this.memory.creepNameList.push(creepName);
+        this.creepNameList.push(creepName);
     }
 
     protected recoveryCreep(creepName: string) {
         delete Memory.creeps[creepName];
-        _.remove(this.memory.creepNameList, function (e) {
+        _.remove(this.creepNameList, function (e) {
             return e == creepName;
         })
     }
 
     run() {
 
-        for (let creepName of this.memory.creepNameList) {
+        for (let creepName of this.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;

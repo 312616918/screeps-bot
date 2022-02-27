@@ -1,13 +1,11 @@
-import {BaseModule} from "./baseModule";
-import {RoomName} from "./config";
+import {globalConfig, RoomName} from "./globalConfig";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
+import {FacilityMemory} from "./facility";
 
 
 export type HarvestMemory = {
-    [roomName in RoomName]?: {
-        creepNameList: string[];
-    }
+    creepNameList: string[];
 }
 
 
@@ -19,35 +17,29 @@ export type HarvestCreepMemory = {
     workPosition?: RoomPosition;
 }
 
-export class Harvest extends BaseModule {
+export class Harvest {
 
     protected readonly roomName: RoomName;
-    protected creepNameList: string[];
+    protected memory: HarvestMemory;
+    protected fac: FacilityMemory;
 
-    constructor(roomName: RoomName) {
-        super(roomName);
-        if (!Memory.harvest) {
-            Memory.harvest = {};
-        }
-        if (!Memory.harvest[this.roomName]) {
-            Memory.harvest[this.roomName] = {
-                creepNameList: []
-            }
-        }
-        let roomMemory = Memory.harvest[this.roomName];
-        this.creepNameList = roomMemory.creepNameList;
+    constructor(roomName: RoomName, m: HarvestMemory, fac: FacilityMemory) {
+        this.roomName = roomName;
+        this.memory = m;
+        this.fac = fac;
     }
 
     protected spawnCreeps() {
-        let sourceConfig = Memory.facility[this.roomName].sources;
+        let sourceConfig = globalConfig[this.roomName].harvest;
         let sourceCreepTicks: {
             [sourceId: string]: number
         } = {};
-        for (let creepName of this.creepNameList) {
+        for (let creepName of this.memory.creepNameList) {
             let creep = Game.creeps[creepName];
             if (!creep) {
                 continue;
             }
+
             let targetId = creep.memory.harvest.targetId;
             let beforeTicks = sourceCreepTicks[targetId];
             let remainTicks = creep.ticksToLive;
@@ -55,19 +47,28 @@ export class Harvest extends BaseModule {
                 sourceCreepTicks[targetId] = remainTicks;
             }
         }
-        for (let sourceId in sourceConfig) {
-            let config = sourceConfig[sourceId];
+        for (let cc of sourceConfig.creepConfigs) {
+            let sourceId = ""
+            for (let sId in this.fac.sources) {
+                let sc = this.fac.sources[sId];
+                if (cc.pos.x == sc.harvestPos.x && cc.pos.y == sc.harvestPos.y) {
+                    sourceId = sId;
+                    break;
+                }
+            }
             let remainTicks = sourceCreepTicks[sourceId];
             if (remainTicks != undefined && remainTicks > 20) {
                 continue;
             }
-            let bodys = [WORK, WORK, WORK, WORK, WORK,
-                CARRY,
-                MOVE, MOVE];
-            let room = Game.rooms[this.roomName];
-            if (room.energyAvailable < 700) {
-                bodys = [WORK, WORK, CARRY, MOVE]
+            let bodys: BodyPartConstant[] = [];
+            for (let part in sourceConfig.defaultParts) {
+                let partAmount = sourceConfig.defaultParts[part];
+                bodys = bodys.concat(new Array(partAmount).fill(part))
             }
+            // let room = Game.rooms[this.roomName];
+            // if (room.energyAvailable < 700) {
+            //     bodys = [WORK, WORK, CARRY, MOVE]
+            // }
             let creepName = "harvest-" + Game.time;
             Spawn.reserveCreep({
                 bakTick: 0,
@@ -77,28 +78,28 @@ export class Harvest extends BaseModule {
                     harvest: {
                         roomName: this.roomName,
                         targetId: sourceId,
-                        towerIds: config.towerIds,
-                        workPosition: config.harvestPos
+                        towerIds: undefined,
+                        workPosition: cc.pos
                     }
                 },
                 name: creepName,
                 priority: 0,
-                spawnNames: ["Spawn1"]
+                spawnNames: this.fac.spawnNames
             })
-            this.creepNameList.push(creepName);
+            this.memory.creepNameList.push(creepName);
         }
     }
 
     protected recoveryCreep(creepName: string) {
         delete Memory.creeps[creepName];
-        _.remove(this.creepNameList, function (e) {
+        _.remove(this.memory.creepNameList, function (e) {
             return e == creepName;
         })
     }
 
     run() {
 
-        for (let creepName of this.creepNameList) {
+        for (let creepName of this.memory.creepNameList) {
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;
@@ -124,31 +125,31 @@ export class Harvest extends BaseModule {
             }
             creep.harvest(target);
 
-            let roomFac = Memory.facility[this.roomName];
-            if (roomFac) {
-                let sourceConfig = roomFac.sources[creep.memory.harvest.targetId];
-                let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
-                if (link
-                    && link.store.getFreeCapacity("energy") > 0
-                    && creep.store.getFreeCapacity("energy") == 0) {
-                    creep.transfer(link, "energy");
-                }
-            }
+            // let sourceConfig = this.fac.sources[creep.memory.harvest.targetId];
+            // let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
+            // if (link
+            //     && link.store.getFreeCapacity("energy") > 0
+            //     && creep.store.getFreeCapacity("energy") == 0) {
+            //     creep.transfer(link, "energy");
+            // }
 
-            //transfer tower 高优先级
-            let towerIds = creep.memory.harvest.towerIds;
-            if (towerIds) {
-                for (let id of towerIds) {
-                    let tower = Game.getObjectById<StructureTower>(id);
-                    if (tower.store.getFreeCapacity("energy") >= 50) {
-                        creep.transfer(tower, "energy");
-                    }
-                }
-            }
-
-
+            // //transfer tower 高优先级
+            // let towerIds = creep.memory.harvest.towerIds;
+            // if (towerIds) {
+            //     for (let id of towerIds) {
+            //         let tower = Game.getObjectById<StructureTower>(id);
+            //         if (tower.store.getFreeCapacity("energy") >= 50) {
+            //             creep.transfer(tower, "energy");
+            //         }
+            //     }
+            // }
+            // if (creep.store.getUsedCapacity("energy") > 20) {
+            //
+            //     let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+            //     creep.build(target);
+            //
+            // }
         }
-
         this.spawnCreeps()
     }
 }

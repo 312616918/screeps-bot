@@ -47,9 +47,9 @@ export class Spawn {
             let reservedPlan = Spawn.spawnMap[spawnName];
             if (!reservedPlan || reservedPlan.priority < template.priority) {
                 Spawn.spawnMap[spawnName] = template;
-                console.log(`${template.name} reserved, body:${template.body}`);
+                console.log(`${template.name} reserved`);
             }
-            console.log(JSON.stringify(Spawn.spawnMap));
+            // console.log(JSON.stringify(Spawn.spawnMap));
         }
     }
 

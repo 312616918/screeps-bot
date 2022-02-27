@@ -1,13 +1,13 @@
 //import dispatch from "./dispatch";
 
 // import { Memory, CreepMemory } from "./node_modules/@types/screeps/index.d.ts"
-import {RoomName} from "./config";
-import {CarryCreepMemory, CarryMemory} from "./carry";
-import {FacilityMemory} from "./facility";
-import {HarvestCreepMemory, HarvestMemory} from "./harvest";
-import {UpgradeCreepMemory, UpgradeMemory} from "./upgrade";
-import {BuildCreepMemory, BuildMemory} from "./build";
-import {MoveCreepMemory, MoveMemory} from "./move";
+import {RoomName} from "./globalConfig";
+import {CarryCreepMemory} from "./carry";
+import {HarvestCreepMemory} from "./harvest";
+import {UpgradeCreepMemory} from "./upgrade";
+import {BuildCreepMemory} from "./build";
+// import {MoveCreepMemory} from "./move";
+import {RoomData} from "./RoomModule";
 // import {ExpandCreepMemory, ExpandMemory} from "./expand";
 
 export {}
@@ -27,20 +27,24 @@ declare global {
     //     | "W2N15" | "W2N16" | "W7N16";
 
     interface Memory {
-        //基础设施
-        facility: FacilityMemory;
-        //运输模块存储
-        carry: CarryMemory;
-        //采集模块
-        harvest: HarvestMemory;
-        //升级模块
-        upgrade: UpgradeMemory;
-        //建造模块
-        build: BuildMemory;
-        //移动控制模块
-        move: MoveMemory;
-        //扩张模块
-        // expand: ExpandMemory;
+        // //基础设施
+        // facility: FacilityMemory;
+        // //运输模块存储
+        // carry: CarryMemory;
+        // //采集模块
+        // harvest: HarvestMemory;
+        // //升级模块
+        // upgrade: UpgradeMemory;
+        // //建造模块
+        // build: BuildMemory;
+        // //移动控制模块
+        // move: MoveMemory;
+        // //扩张模块
+        // // expand: ExpandMemory;
+
+        roomData: {
+            [roomName in RoomName]?: RoomData;
+        }
     }
 
     //繁殖接口
@@ -66,7 +70,7 @@ declare global {
         //升级creep
         upgrade?: UpgradeCreepMemory;
         //移动属性
-        move?: MoveCreepMemory;
+        // move?: MoveCreepMemory;
         //扩张creep
         // expand?: ExpandCreepMemory;
     }
@@ -112,11 +116,10 @@ declare global {
         }
     }
 
-    interface ModuleMemory{
+    interface ModuleMemory {
         roomName: RoomName;
         workPosition?: RoomPosition;
     }
-
 
 
 }

@@ -1,4 +1,4 @@
-import {RoomName} from "./globalConfig";
+import {RoomName} from "./config";
 
 export abstract class BaseModule{
     protected readonly roomName:RoomName;
