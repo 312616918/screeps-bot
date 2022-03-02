@@ -78,7 +78,7 @@ export class Carry {
             let partAmount = config.defaultParts[part];
             bodyList = bodyList.concat(new Array(partAmount).fill(part))
         }
-        let creepName = "carry-" + Game.time;
+        let creepName = `carry-${this.roomName}-${Game.time}`;
         Spawn.reserveCreep({
             bakTick: 0,
             body: bodyList,
@@ -265,6 +265,10 @@ export class Carry {
             return;
         }
         let roomName = <RoomName>obj.pos.roomName;
+        if(roomName!=this.roomName){
+            console.log("not in one room"+roomName+"  "+this.roomName)
+            return;
+        }
         let taskId = obj.id + "#" + carryType + "#" + resourceType;
         if (!this.memory.taskMap[taskId]) {
             this.memory.taskMap[taskId] = {

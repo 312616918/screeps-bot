@@ -56,7 +56,7 @@ export class Upgrade {
                 continue;
             }
             let pos = globalConfig[this.roomName].upgrade.creepConfigs[i].pos;
-            let creepName = "upgrade-" + Game.time + "-" + i;
+            let creepName = `upgrade-${this.roomName}-${Game.time}-${i}`;
             Spawn.reserveCreep({
                 bakTick: 0,
                 body: [WORK, WORK,
@@ -124,6 +124,8 @@ export class Upgrade {
             let carryModule = Carry.entities[this.roomName];
             if (carryModule) {
                 carryModule.addCarryReq(creep, "input", "energy", creep.store.getCapacity() + 400);
+            }else{
+                console.log("no carry module "+ this.roomName);
             }
 
         }

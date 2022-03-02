@@ -1,6 +1,7 @@
 import {RoomName} from "./globalConfig";
 import {RoomModule} from "./RoomModule";
 import {Spawn} from "./spawn";
+import {Expand} from "./expand";
 // import {RoomModule} from "./room_modules/RoomModule";
 
 module.exports.loop = function () {
@@ -11,6 +12,7 @@ module.exports.loop = function () {
         let roomModule = new RoomModule(roomName);
         roomModule.run();
     }
-    Spawn.spawnCreep()
+    Spawn.spawnCreep();
+    Spawn.show();
 
 }

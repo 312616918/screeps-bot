@@ -37,12 +37,12 @@ export type FacilityMemory = {
 
 export class Facility {
     protected roomName: RoomName;
-    protected facilityMemory: FacilityMemory;
+    protected fac: FacilityMemory;
     protected room: Room;
 
     constructor(roomName: RoomName, facilityMemory: FacilityMemory) {
         this.roomName = roomName;
-        this.facilityMemory = facilityMemory;
+        this.fac = facilityMemory;
         this.room = Game.rooms[this.roomName];
     }
 
@@ -72,18 +72,20 @@ export class Facility {
 
     refresh(): void {
 
-        //tower
-        // let roomTowers = room.find(FIND_STRUCTURES, {
-        //     filter: (s) => {
-        //         return s.structureType == STRUCTURE_TOWER
-        //     }
-        // });
-        // roomFac.towerIds = roomTowers.map((v) => {
-        //     return v.id;
-        // })
+        let room = Game.rooms[this.roomName];
+
+        // tower
+        let roomTowers = room.find(FIND_STRUCTURES, {
+            filter: (s) => {
+                return s.structureType == STRUCTURE_TOWER
+            }
+        });
+        this.fac.towerIds = roomTowers.map((v) => {
+            return v.id;
+        })
 
         //source
-        this.facilityMemory.sources={}
+        this.fac.sources = {}
         for (let cc of globalConfig[this.roomName].harvest.creepConfigs) {
             let pos = cc.pos;
             let source = pos.findClosestByRange<FIND_SOURCES>(FIND_SOURCES, {
@@ -95,17 +97,17 @@ export class Facility {
                 console.error("can't find source")
                 continue;
             }
-            this.facilityMemory.sources[source.id] = {
+            this.fac.sources[source.id] = {
                 harvestPos: pos
             };
-            let sourceNode = this.facilityMemory.sources[source.id];
+            let sourceNode = this.fac.sources[source.id];
 
-            // let towers = pos.findInRange(roomTowers, 1);
-            // if (towers.length) {
-            //     sourceNode.towerIds = towers.map((s) => {
-            //         return s.id
-            //     });
-            // }
+            let towers = pos.findInRange(roomTowers, 1);
+            if (towers.length) {
+                sourceNode.towerIds = towers.map((s) => {
+                    return s.id
+                });
+            }
 
             let containers = pos.findInRange(FIND_STRUCTURES, 1, {
                 filter: (s) => {
@@ -125,9 +127,9 @@ export class Facility {
                 sourceNode.linkId = link.id;
             }
 
-            // if (pos.getRangeTo(room.controller) <= 3) {
-            //     sourceNode.controllerId = room.controller.id;
-            // }
+            if (pos.getRangeTo(room.controller) <= 3) {
+                sourceNode.controllerId = room.controller.id;
+            }
         }
         // let storages = this.room.find(FIND_STRUCTURES, {
         //     filter: (s) => {
@@ -183,23 +185,23 @@ export class Facility {
         // this.facilityMemory.upgrade = {
         //     workPositions: [pos]
         // }
-
+        this.fac.upgrade = {}
         let containers = pos.findInRange(FIND_STRUCTURES, 1, {
             filter: (s) => {
                 return s.structureType == STRUCTURE_CONTAINER
             }
         });
         if (containers.length) {
-            this.facilityMemory.upgrade.containerId = containers[0].id;
+            this.fac.upgrade.containerId = containers[0].id;
         }
 
-        let link = pos.findClosestByRange(FIND_STRUCTURES, {
+        let link = pos.findInRange(FIND_STRUCTURES, 1,{
             filter: (s) => {
                 return s.structureType == STRUCTURE_LINK
             }
         });
-        if (link) {
-            this.facilityMemory.upgrade.linkId = link.id;
+        if (link.length) {
+            this.fac.upgrade.linkId = link[0].id;
         }
 
         // let towers = pos.findInRange(roomTowers, 1);
@@ -210,7 +212,7 @@ export class Facility {
         // }
 
 
-        this.facilityMemory.spawnNames = this.room.find(FIND_STRUCTURES, {
+        this.fac.spawnNames = this.room.find(FIND_STRUCTURES, {
             filter: (s) => {
                 return s.structureType == STRUCTURE_SPAWN
             }
@@ -254,7 +256,7 @@ export class Facility {
         // }
 
         //extension
-        this.facilityMemory.extensionIds = this.room.find(FIND_STRUCTURES, {
+        this.fac.extensionIds = this.room.find(FIND_MY_STRUCTURES, {
             filter: (s) => {
                 return s.structureType == STRUCTURE_EXTENSION;
             }
@@ -263,39 +265,35 @@ export class Facility {
 
     };
 
-    //
-    // public static runTower(): void {
-    //     let fac = Memory.facility;
-    //     for (let roomName in fac) {
-    //         let roomFac = fac[roomName];
-    //         if (!roomFac.towerIds) {
-    //             continue;
-    //         }
-    //         for (let i in roomFac.towerIds) {
-    //             let tower = Game.getObjectById<StructureTower>(roomFac.towerIds[i]);
-    //             if (!tower) {
-    //                 continue;
-    //             }
-    //             let hostiles = tower.room.find(FIND_HOSTILE_CREEPS);
-    //             if (hostiles.length) {
-    //                 tower.attack(hostiles[Math.floor(Math.random() * hostiles.length)]);
-    //             } else {
-    //                 var DamagedStructure = tower.room.find(FIND_STRUCTURES, {
-    //                     filter: (structure) => {
-    //                         if (structure.structureType != STRUCTURE_WALL &&
-    //                             structure.structureType != STRUCTURE_RAMPART) {
-    //                             return structure.hits < structure.hitsMax - 1000;
-    //                         }
-    //                         return structure.hits < 20000;
-    //                     }
-    //                 });
-    //                 if (DamagedStructure.length) {
-    //                     tower.repair(DamagedStructure[Math.floor(Math.random() * DamagedStructure.length)]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+
+    public runTower(): void {
+        if (!this.fac.towerIds) {
+            return;
+        }
+        for (let i in this.fac.towerIds) {
+            let tower = Game.getObjectById<StructureTower>(this.fac.towerIds[i]);
+            if (!tower) {
+                continue;
+            }
+            let hostiles = tower.room.find(FIND_HOSTILE_CREEPS);
+            if (hostiles.length) {
+                tower.attack(hostiles[Math.floor(Math.random() * hostiles.length)]);
+            } else {
+                var damagedStructure = tower.room.find(FIND_STRUCTURES, {
+                    filter: (structure) => {
+                        if (structure.structureType != STRUCTURE_WALL &&
+                            structure.structureType != STRUCTURE_RAMPART) {
+                            return structure.hits < structure.hitsMax - 1000;
+                        }
+                        return structure.hits < 20000;
+                    }
+                });
+                if (damagedStructure.length) {
+                    tower.repair(damagedStructure[Math.floor(Math.random() * damagedStructure.length)]);
+                }
+            }
+        }
+    }
 
     // runLab() {
     //

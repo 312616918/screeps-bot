@@ -1,5 +1,5 @@
 import {BaseModule} from "./baseModule";
-import {RoomName} from "./globalConfig";
+import {globalConfig, RoomName} from "./globalConfig";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
 import {Carry} from "./carry";
@@ -30,11 +30,11 @@ export class Build {
 
     protected spawnCreeps() {
 
-        if (this.memory.creepNameList.length >= 1) {
+        if (this.memory.creepNameList.length >= globalConfig[this.roomName].build.amount) {
             return;
         }
         let room = Game.rooms[this.roomName];
-        let sites = room.find(FIND_CONSTRUCTION_SITES);
+        let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
         if (sites.length == 0) {
             return;
         }
@@ -73,7 +73,7 @@ export class Build {
                 continue;
             }
             let creep = Game.creeps[creepName];
-            let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+            let target = creep.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES);
             if (!target) {
                 return;
             }

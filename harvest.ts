@@ -69,7 +69,7 @@ export class Harvest {
             // if (room.energyAvailable < 700) {
             //     bodys = [WORK, WORK, CARRY, MOVE]
             // }
-            let creepName = "harvest-" + Game.time;
+            let creepName = `harvest-${this.roomName}-${Game.time}`;
             Spawn.reserveCreep({
                 bakTick: 0,
                 body: bodys,
@@ -78,7 +78,7 @@ export class Harvest {
                     harvest: {
                         roomName: this.roomName,
                         targetId: sourceId,
-                        towerIds: undefined,
+                        towerIds: this.fac.sources[sourceId].towerIds,
                         workPosition: cc.pos
                     }
                 },
@@ -133,21 +133,28 @@ export class Harvest {
             //     creep.transfer(link, "energy");
             // }
 
-            // //transfer tower 高优先级
-            // let towerIds = creep.memory.harvest.towerIds;
-            // if (towerIds) {
-            //     for (let id of towerIds) {
-            //         let tower = Game.getObjectById<StructureTower>(id);
-            //         if (tower.store.getFreeCapacity("energy") >= 50) {
-            //             creep.transfer(tower, "energy");
-            //         }
+            //transfer tower 高优先级
+            let towerIds = creep.memory.harvest.towerIds;
+            if (towerIds) {
+                for (let id of towerIds) {
+                    let tower = Game.getObjectById<StructureTower>(id);
+                    if (tower.store.getFreeCapacity("energy") >= 50) {
+                        creep.transfer(tower, "energy");
+                    }
+                }
+            }
+            if (creep.store.getUsedCapacity("energy") > 20) {
+
+                let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+                creep.build(target);
+
+            }
+
+            // if(this.fac.sources[creep.memory.harvest.targetId].controllerId){
+            //     let controller = Game.getObjectById(this.fac.sources[creep.memory.harvest.targetId].controllerId)
+            //     if(controller){
+            //         target.
             //     }
-            // }
-            // if (creep.store.getUsedCapacity("energy") > 20) {
-            //
-            //     let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
-            //     creep.build(target);
-            //
             // }
         }
         this.spawnCreeps()
