@@ -95,6 +95,7 @@ export class RoomModule {
         //1. facility
         this.facility.refresh()
         this.facility.runTower()
+        this.facility.runLink()
 
         //2. normal module
         this.harvest.run()

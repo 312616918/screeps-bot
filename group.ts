@@ -4,12 +4,24 @@ import * as _ from "lodash";
 import {FacilityMemory} from "./facility";
 
 
-export type HarvestMemory = {
+enum TurningStage{
+
+}
+
+let locConfig:{
+    [i:number]:number[]
+}={
+    0:[0,1],
+    1:[2,3]
+}
+
+export type GroupMemory = {
     creepNameList: string[];
+    direction:DirectionConstant;
 }
 
 
-export type HarvestCreepMemory = {
+export type GroupCreepMemory = {
     roomName: RoomName;
     targetId: string;
     towerIds: string[];
@@ -17,13 +29,13 @@ export type HarvestCreepMemory = {
     workPosition?: RoomPosition;
 }
 
-export class Harvest {
+export class Group {
 
     protected readonly roomName: RoomName;
-    protected memory: HarvestMemory;
+    protected memory: GroupMemory;
     protected fac: FacilityMemory;
 
-    constructor(roomName: RoomName, m: HarvestMemory, fac: FacilityMemory) {
+    constructor(roomName: RoomName, m: GroupMemory, fac: FacilityMemory) {
         this.roomName = roomName;
         this.memory = m;
         this.fac = fac;
@@ -125,13 +137,13 @@ export class Harvest {
             }
             creep.harvest(target);
 
-            let sourceConfig = this.fac.sources[creep.memory.harvest.targetId];
-            let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
-            if (link
-                && link.store.getFreeCapacity("energy") >= 24
-                && creep.store.getFreeCapacity("energy") == 0) {
-                creep.transfer(link, "energy");
-            }
+            // let sourceConfig = this.fac.sources[creep.memory.harvest.targetId];
+            // let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
+            // if (link
+            //     && link.store.getFreeCapacity("energy") > 0
+            //     && creep.store.getFreeCapacity("energy") == 0) {
+            //     creep.transfer(link, "energy");
+            // }
 
             //transfer tower 高优先级
             let towerIds = creep.memory.harvest.towerIds;
@@ -145,23 +157,17 @@ export class Harvest {
             }
             if (creep.store.getUsedCapacity("energy") > 20) {
 
-                let targets = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES,3);
-                if(targets.length){
-                    let drop = creep.pos.findInRange(FIND_DROPPED_RESOURCES,1);
-                    if(drop.length){
-                        creep.pickup(drop[0]);
-                    }
-                    creep.build(targets[0]);
-                }
+                let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+                creep.build(target);
 
             }
 
-            if(this.fac.sources[creep.memory.harvest.targetId].controllerId){
-                let controller = Game.getObjectById<StructureController>(this.fac.sources[creep.memory.harvest.targetId].controllerId)
-                if(controller){
-                    creep.upgradeController(controller);
-                }
-            }
+            // if(this.fac.sources[creep.memory.harvest.targetId].controllerId){
+            //     let controller = Game.getObjectById(this.fac.sources[creep.memory.harvest.targetId].controllerId)
+            //     if(controller){
+            //         target.
+            //     }
+            // }
         }
         this.spawnCreeps()
     }

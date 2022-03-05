@@ -46,28 +46,28 @@ export class Facility {
         this.room = Game.rooms[this.roomName];
     }
 
-    //
-    // public runLink() {
-    //     let sourceFac = this.roomFac.sources;
-    //     let sourceLinks: StructureLink[] = [];
-    //     for (let sourceId in sourceFac) {
-    //         let sourceConfig = sourceFac[sourceId];
-    //         let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
-    //         if (!link) {
-    //             continue;
-    //         }
-    //         sourceLinks.push(link);
-    //     }
-    //     let upgradeLink = Game.getObjectById<StructureLink>(this.roomFac.upgrade.linkId);
-    //     if (upgradeLink && sourceLinks.length != 0) {
-    //         sourceLinks.forEach(link => {
-    //             if (link.store.getFreeCapacity("energy") == 0
-    //                 && upgradeLink.store.getUsedCapacity("energy") <= 24) {
-    //                 link.transferEnergy(upgradeLink);
-    //             }
-    //         })
-    //     }
-    // }
+
+    public runLink() {
+        let sourceFac = this.fac.sources;
+        let sourceLinks: StructureLink[] = [];
+        for (let sourceId in sourceFac) {
+            let sourceConfig = sourceFac[sourceId];
+            let link = Game.getObjectById<StructureLink>(sourceConfig.linkId);
+            if (!link) {
+                continue;
+            }
+            sourceLinks.push(link);
+        }
+        let upgradeLink = Game.getObjectById<StructureLink>(this.fac.upgrade.linkId);
+        if (upgradeLink && sourceLinks.length != 0) {
+            sourceLinks.forEach(link => {
+                if (link.store.getFreeCapacity("energy") == 0
+                    && upgradeLink.store.getUsedCapacity("energy") <= 24) {
+                    link.transferEnergy(upgradeLink);
+                }
+            })
+        }
+    }
 
 
     refresh(): void {

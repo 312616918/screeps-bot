@@ -40,9 +40,12 @@ export class Expand {
         let creepName = "expand-" + Game.time + "-" + 0;
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, WORK, WORK,WORK,WORK,
+            body: [WORK, WORK, WORK,WORK,
                 CARRY,
-                MOVE, MOVE, MOVE, MOVE, MOVE],
+                MOVE, MOVE, MOVE, MOVE],
+            // body: [WORK, WORK, MOVE],
+            // body: [MOVE],
+            // body: [CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE],
             memory: {
                 module: "expand",
                 // upgrade: {
@@ -76,27 +79,88 @@ export class Expand {
                 continue;
             }
             let creep = Game.creeps[creepName];
+            // creep.suicide();
+            // //bite
+            // let biteFlag = Game.flags["bite"];
+            // if (creep.body.length == 1 && biteFlag) {
+            //     creep.moveTo(biteFlag, {
+            //         visualizePathStyle: {
+            //             stroke: '#ffffff'
+            //         }
+            //     });
+            //     continue;
+            // }
+
+
+            // //attack
+            // if (creep.pos.y <= 48 && creep.pos.roomName == "W4N21" && creep.body.map(b => b.type).indexOf(RANGED_ATTACK) != -1) {
+            //     let target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
+            //         filter: (c) => {
+            //             console.log(creep.body.map(b => b.hits > 0 ? b.type : CARRY));
+            //             return !c.my && creep.body.map(b => b.hits > 0 ? b.type : CARRY).indexOf(ATTACK) != -1;
+            //         }
+            //     })
+            //     console.log(target);
+            //     if (target) {
+            //         if (creep.rangedAttack(target) == ERR_NOT_IN_RANGE) {
+            //             creep.moveTo(target, {
+            //                 visualizePathStyle: {
+            //                     stroke: '#ffffff'
+            //                 }
+            //             });
+            //         }
+            //         if (creep.pos.getRangeTo(target) <= 2) {
+            //             creep.moveTo(new RoomPosition(40, 7, "W4N20"), {
+            //                 visualizePathStyle: {
+            //                     stroke: '#ffffff'
+            //                 }
+            //             });
+            //         }
+            //     }
+            //     continue
+            // }
+
 
             //to target room
-            let targetRoomName = "W3N19";
+            let targetRoomName = "W8N24";
             if (creep.pos.roomName != targetRoomName) {
-                let tarPos = new RoomPosition(2, 39, targetRoomName);
-                let midFlag = Game.flags["expand_mid"];
-                if (midFlag) {
-                    tarPos = midFlag.pos;
+                let tarPos = new RoomPosition(2, 21, targetRoomName);
+                let flagIndex = 0;
+                if (creep.memory["flagIndex"]) {
+                    flagIndex = creep.memory["flagIndex"];
                 }
-                let avoidPos = [];
-                for(let i = 0;i<50;i++){
-                    avoidPos.push(new RoomPosition(i,4,this.roomName))
+                let index;
+                let midFlag
+                for (index = flagIndex + 1; index < 10; index++) {
+                    midFlag = Game.flags["expand_mid_" + index];
+                    if (midFlag) {
+                        tarPos = midFlag.pos;
+                        break;
+                    }
                 }
+
                 creep.moveTo(tarPos, {
                     visualizePathStyle: {
                         stroke: '#ffffff'
-                    },
-                    avoid:avoidPos
+                    }
                 });
+
+                if (index && midFlag && creep.pos.getRangeTo(midFlag) == 0) {
+                    creep.memory["flagIndex"] = index;
+                }
                 continue;
             }
+
+            //renew
+            // let reRoomName = RoomName.W8N21;
+            // if(creep.pos.roomName==reRoomName&&creep.memory["has_renewed"]){
+            //     let cont = Game.getObjectById<STRUCTURE_CONTROLLER>("62231161f71be3cac3725456");
+            //     if(cont.re)
+            // }
+
+
+
+
 
             //claim controller
             let targetRoom = Game.rooms[targetRoomName];
@@ -111,8 +175,31 @@ export class Expand {
                 }
             }
 
+
+            // let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+            // if(target){
+            //     let wall = target.pos.findClosestByRange(FIND_STRUCTURES,{
+            //         filter: (s) => {
+            //             return s.structureType == STRUCTURE_WALL
+            //         }
+            //     })
+            //     if(target.pos.getRangeTo(wall)<=4){
+            //         if (creep.dismantle(wall) == ERR_NOT_IN_RANGE) {
+            //             creep.moveTo(wall, {
+            //                 visualizePathStyle: {
+            //                     stroke: '#ffffff'
+            //                 }
+            //             });
+            //         }
+            //     }
+            //     if (creep.store.getUsedCapacity("energy") > 20) {
+            //         creep.build(target);
+            //     }
+            // }
+
             //harvest
-            let source = creep.pos.findClosestByRange<FIND_SOURCES>(FIND_SOURCES)
+            // let source = creep.pos.findClosestByRange<FIND_SOURCES>(FIND_SOURCES)
+            let source = Game.getObjectById<Source>("5bbcac6f9099fc012e63572c")
             if (creep.harvest(source) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, {
                     visualizePathStyle: {
@@ -126,6 +213,18 @@ export class Expand {
                 let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
                 creep.build(target);
             }
+
+            //dismantle
+            // let target = Game.getObjectById<Structure>("606f4fdbe6f7f8d2504b237e")
+            // if (target) {
+            //     if (creep.dismantle(target) == ERR_NOT_IN_RANGE) {
+            //         creep.moveTo(target, {
+            //             visualizePathStyle: {
+            //                 stroke: '#ffffff'
+            //             }
+            //         });
+            //     }
+            // }
 
         }
 
