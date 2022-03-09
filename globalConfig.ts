@@ -8,6 +8,7 @@ export enum RoomName {
     W8N21 = "W8N21",
     W4N22 = "W4N22",
     W8N24 = "W8N24",
+    W7N24 = "W7N24",
 
     // W23S23 = "W23S23"
     // W3N15="W3N15",
@@ -51,7 +52,7 @@ type Config = {
 export const globalConfig: Config = {
     W7N18: {
         carry: {
-            amount: 8,
+            amount: 4,
             defaultParts: {
                 carry: 4,
                 move: 2
@@ -81,7 +82,7 @@ export const globalConfig: Config = {
                 , {
                     pos: new RoomPosition(36, 13, RoomName.W7N18)
                 }, {
-                    pos: new RoomPosition(37, 13, RoomName.W7N18)
+                    pos: new RoomPosition(36, 12, RoomName.W7N18)
                 }
             ]
         },
@@ -96,10 +97,10 @@ export const globalConfig: Config = {
     },
     W3N19: {
         carry: {
-            amount: 6,
+            amount: 2,
             defaultParts: {
-                carry: 2,
-                move: 1
+                carry: 4,
+                move: 2
             }
         },
         harvest: {
@@ -116,15 +117,17 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 2,
-                carry: 1,
+                work: 5,
+                carry: 2,
                 move: 1
             },
             creepConfigs: [{
                 pos: new RoomPosition(26, 28, RoomName.W3N19)
-            },{
+            }
+            ,{
                 pos: new RoomPosition(27, 28, RoomName.W3N19)
-            }]
+            }
+            ]
         },
         build: {
             amount: 1,
@@ -139,14 +142,14 @@ export const globalConfig: Config = {
         carry: {
             amount: 4,
             defaultParts: {
-                carry: 1,
-                move: 1
+                carry: 4,
+                move: 2
             }
         },
         harvest: {
             defaultParts: {
-                work: 2,
-                carry: 0,
+                work: 5,
+                carry: 1,
                 move: 1
             },
             creepConfigs: [{
@@ -157,17 +160,19 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 1,
-                carry: 1,
-                move: 1
+                work: 4,
+                carry: 2,
+                move: 2
             },
             creepConfigs: [{
                 pos: new RoomPosition(31, 13, RoomName.W8N21)
-            },{
-                pos: new RoomPosition(30, 12, RoomName.W8N21)
-            },{
-                pos: new RoomPosition(32, 13, RoomName.W8N21)
-            }]
+            }
+            // ,{
+            //     pos: new RoomPosition(30, 12, RoomName.W8N21)
+            // },{
+            //     pos: new RoomPosition(32, 13, RoomName.W8N21)
+            // }
+            ]
         },
         build: {
             amount: 1,
@@ -180,16 +185,16 @@ export const globalConfig: Config = {
     },
     W4N22: {
         carry: {
-            amount: 4,
+            amount: 2,
             defaultParts: {
-                carry: 1,
-                move: 1
+                carry: 4,
+                move: 2
             }
         },
         harvest: {
             defaultParts: {
                 work: 2,
-                carry: 0,
+                carry: 1,
                 move: 1
             },
             creepConfigs: [{
@@ -224,15 +229,15 @@ export const globalConfig: Config = {
     W8N24: {
         carry: {
             amount: 4,
-            defaultParts: {
-                carry: 1,
-                move: 1
+            defaultParts: { 
+                carry: 4,
+                move: 2
             }
         },
         harvest: {
             defaultParts: {
-                work: 2,
-                carry: 0,
+                work: 5,
+                carry: 1,
                 move: 1
             },
             creepConfigs: [{
@@ -253,6 +258,47 @@ export const globalConfig: Config = {
                 pos: new RoomPosition(12, 17, RoomName.W8N24)
             },{
                 pos: new RoomPosition(11, 16, RoomName.W8N24)
+            }]
+        },
+        build: {
+            amount: 1,
+            defaultParts: {
+                work: 1,
+                carry: 1,
+                move: 1
+            }
+        }
+    },
+    W7N24: {
+        carry: {
+            amount: 4,
+            defaultParts: {
+                carry: 4,
+                move: 2
+            }
+        },
+        harvest: {
+            defaultParts: {
+                work: 1,
+                carry: 0,
+                move: 1
+            },
+            creepConfigs: [{
+                pos: new RoomPosition(44, 45, RoomName.W7N24)
+            }]
+        },
+        upgrade: {
+            defaultParts: {
+                work: 2,
+                carry: 1,
+                move: 1
+            },
+            creepConfigs: [{
+                pos: new RoomPosition(40, 18, RoomName.W7N24)
+            },{
+                pos: new RoomPosition(41, 19, RoomName.W7N24)
+            },{
+                pos: new RoomPosition(42, 20, RoomName.W7N24)
             }]
         },
         build: {

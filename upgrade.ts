@@ -57,11 +57,15 @@ export class Upgrade {
             }
             let pos = globalConfig[this.roomName].upgrade.creepConfigs[i].pos;
             let creepName = `upgrade-${this.roomName}-${Game.time}-${i}`;
+
+            let bodys: BodyPartConstant[] = [];
+            for (let part in globalConfig[this.roomName].upgrade.defaultParts) {
+                let partAmount = globalConfig[this.roomName].upgrade.defaultParts[part];
+                bodys = bodys.concat(new Array(partAmount).fill(part))
+            }
             Spawn.reserveCreep({
                 bakTick: 0,
-                body: [WORK, WORK,
-                    CARRY,
-                    MOVE],
+                body: bodys,
                 memory: {
                     module: "upgrade",
                     upgrade: {
@@ -106,6 +110,14 @@ export class Upgrade {
                     creep.moveTo(workPos, {
                         visualizePathStyle: {
                             stroke: '#ffffff'
+                        },
+                        costCallback: function(roomName, costMatrix) {
+                            if(roomName == "W7N24") {
+                                for(let x = 0;x < 50;x++){
+                                    costMatrix.set(x,0,255)
+                                    costMatrix.set(x,1,0)
+                                }
+                            }
                         }
                     });
                     // return;

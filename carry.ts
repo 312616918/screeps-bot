@@ -132,6 +132,14 @@ export class Carry {
                 creep.moveTo(this.storage, {
                     visualizePathStyle: {
                         stroke: '#ffffff'
+                    },
+                    costCallback: function(roomName, costMatrix) {
+                        if(roomName == "W7N24") {
+                            for(let x = 0;x < 50;x++){
+                                costMatrix.set(x,0,255)
+                                costMatrix.set(x,1,0)
+                            }
+                        }
                     }
                 });
                 // let moveModule=Move.entities[this.roomName];
@@ -155,6 +163,14 @@ export class Carry {
             creep.moveTo(target, {
                 visualizePathStyle: {
                     stroke: '#ffffff'
+                },
+                costCallback: function(roomName, costMatrix) {
+                    if(roomName == "W7N24") {
+                        for(let x = 0;x < 50;x++){
+                            costMatrix.set(x,0,255)
+                            costMatrix.set(x,1,0)
+                        }
+                    }
                 }
             });
             // let moveModule=Move.entities[this.roomName];
@@ -185,6 +201,14 @@ export class Carry {
                     creep.moveTo(this.storage, {
                         visualizePathStyle: {
                             stroke: '#ffffff'
+                        },
+                        costCallback: function(roomName, costMatrix) {
+                            if(roomName == "W7N24") {
+                                for(let x = 0;x < 50;x++){
+                                    costMatrix.set(x,0,255)
+                                    costMatrix.set(x,1,0)
+                                }
+                            }
                         }
                     });
                     // let moveModule=Move.entities[this.roomName];
@@ -223,6 +247,8 @@ export class Carry {
         if (creepMemory.hasBusyTask) {
             return;
         }
+        let closestTaskId = "";
+        let dis = -1;
         for (let taskId in this.memory.taskMap) {
             let task = this.memory.taskMap[taskId];
             if (task.reserved >= task.amount) {
@@ -238,9 +264,23 @@ export class Carry {
                     continue;
                 }
             }
-            this.takeTask(creep, taskId, creep.store.getCapacity());
-            break;
+            let obj = Game.getObjectById<Structure | Creep>(task.objId);
+            if(!obj){
+                continue
+            }
+            let taskPos = obj.pos;
+            let tmpDis = creep.pos.getRangeTo(taskPos);
+            if (dis < 0 || dis > tmpDis) {
+                dis = tmpDis;
+                closestTaskId = taskId;
+            }
+            // this.takeTask(creep, taskId, creep.store.getCapacity());
+            // break;
         }
+        if (dis > 0) {
+            this.takeTask(creep, closestTaskId, creep.store.getCapacity());
+        }
+
     }
 
     protected recoveryCreep(creepName: string): void {
@@ -265,8 +305,8 @@ export class Carry {
             return;
         }
         let roomName = <RoomName>obj.pos.roomName;
-        if(roomName!=this.roomName){
-            console.log("not in one room"+roomName+"  "+this.roomName)
+        if (roomName != this.roomName) {
+            console.log("not in one room" + roomName + "  " + this.roomName)
             return;
         }
         let taskId = obj.id + "#" + carryType + "#" + resourceType;

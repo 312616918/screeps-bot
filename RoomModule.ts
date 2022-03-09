@@ -85,13 +85,62 @@ export class RoomModule {
         this.harvest = new Harvest(this.roomName, this.roomData.harvest, this.roomData.facility);
         this.upgrade = new Upgrade(this.roomName, this.roomData.upgrade, this.roomData.facility);
         this.build = new Build(this.roomName, this.roomData.build, this.roomData.facility);
-        if (this.roomName == RoomName.W7N18) {
+        if (this.roomName == RoomName.W8N24) {
             this.expand = new Expand(this.roomName, this.roomData.expand, this.roomData.facility);
         }
     }
 
     //主流程
     public run(): void {
+
+        this.facility.refresh()
+
+        let room = Game.rooms[this.roomName];
+        let drops = room.find(FIND_DROPPED_RESOURCES);
+        if (drops.length != 0) {
+            for (let drop of drops) {
+                this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
+            }
+        }
+
+
+
+        for (let spawnName of this.roomData.facility.spawnNames) {
+            let spawn = Game.spawns[spawnName];
+            if (spawn.store.getFreeCapacity("energy") != 0) {
+                this.carry.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
+            }
+        }
+
+        let extensionIds = this.roomData.facility.extensionIds;
+        if (extensionIds) {
+            for (let id of extensionIds) {
+                let extension = Game.getObjectById<StructureExtension>(id);
+                let freeCapacity = extension.store.getFreeCapacity("energy");
+                if (freeCapacity > 0) {
+                    this.carry.addCarryReq(extension, "input", "energy", freeCapacity);
+                }
+            }
+        }
+
+        for (let sourceId in this.roomData.facility.sources) {
+            let config = this.roomData.facility.sources[sourceId];
+            let container = Game.getObjectById<StructureContainer>(config.containerId);
+            if (!container) {
+                continue;
+            }
+            let amount = container.store.getUsedCapacity("energy");
+            if (amount < 200) {
+                continue;
+            }
+            this.carry.addCarryReq(container, "output", "energy", amount);
+        }
+
+
+
+
+
+
         //1. facility
         this.facility.refresh()
         this.facility.runTower()
@@ -124,13 +173,6 @@ export class RoomModule {
         //     //     carryModule.addCarryReq(container, "output", "energy", amount);
         //     // }
         // }
-        let room = Game.rooms[this.roomName];
-        let drops = room.find(FIND_DROPPED_RESOURCES);
-        if (drops.length != 0) {
-            for (let drop of drops) {
-                this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
-            }
-        }
 
         if (this.roomData.facility.upgrade) {
             let upgradeLink = Game.getObjectById<StructureLink>(this.roomData.facility.upgrade.linkId)
@@ -139,36 +181,7 @@ export class RoomModule {
             }
         }
 
-        for (let spawnName of this.roomData.facility.spawnNames) {
-            let spawn = Game.spawns[spawnName];
-            if (spawn.store.getFreeCapacity("energy") != 0) {
-                this.carry.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
-            }
-        }
 
-        let extensionIds = this.roomData.facility.extensionIds;
-        if (extensionIds) {
-            for (let id of extensionIds) {
-                let extension = Game.getObjectById<StructureExtension>(id);
-                let freeCapacity = extension.store.getFreeCapacity("energy");
-                if (freeCapacity > 0) {
-                    this.carry.addCarryReq(extension, "input", "energy", freeCapacity);
-                }
-            }
-        }
-
-        for (let sourceId in this.roomData.facility.sources) {
-            let config = this.roomData.facility.sources[sourceId];
-            let container = Game.getObjectById<StructureContainer>(config.containerId);
-            if (!container) {
-                continue;
-            }
-            let amount = container.store.getUsedCapacity("energy");
-            if (amount < 200) {
-                continue;
-            }
-            this.carry.addCarryReq(container, "output", "energy", amount);
-        }
         // let cs = room.find(FIND_CREEPS).map((s) => s.name);
         //
         // for(let creepName of cs){

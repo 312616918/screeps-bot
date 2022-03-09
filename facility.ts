@@ -131,14 +131,14 @@ export class Facility {
                 sourceNode.controllerId = room.controller.id;
             }
         }
-        // let storages = this.room.find(FIND_STRUCTURES, {
-        //     filter: (s) => {
-        //         return s.structureType == STRUCTURE_STORAGE
-        //     }
-        // })
-        // if (storages.length) {
-        //     roomFac.storageId = storages[0].id;
-        // }
+        let storages = this.room.find(FIND_STRUCTURES, {
+            filter: (s) => {
+                return s.structureType == STRUCTURE_STORAGE
+            }
+        })
+        if (storages.length) {
+            this.fac.storageId = storages[0].id;
+        }
         //
         //     let terminals = pos.findInRange(FIND_STRUCTURES, 1, {
         //         filter: (s) => {

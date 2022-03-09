@@ -65,10 +65,11 @@ export class Harvest {
                 let partAmount = sourceConfig.defaultParts[part];
                 bodys = bodys.concat(new Array(partAmount).fill(part))
             }
-            // let room = Game.rooms[this.roomName];
-            // if (room.energyAvailable < 700) {
-            //     bodys = [WORK, WORK, CARRY, MOVE]
-            // }
+            let room = Game.rooms[this.roomName];
+            console.log(room.energyAvailable);
+            if (room.energyAvailable <= 700) {
+                bodys = [WORK, WORK, CARRY, MOVE]
+            }
             let creepName = `harvest-${this.roomName}-${Game.time}`;
             Spawn.reserveCreep({
                 bakTick: 0,

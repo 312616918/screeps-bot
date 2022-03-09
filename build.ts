@@ -39,7 +39,7 @@ export class Build {
             return;
         }
 
-        let creepName = "build-" + Game.time;
+        let creepName = `build-${this.roomName}-${Game.time}`;
 
         Spawn.reserveCreep({
             bakTick: 0,
