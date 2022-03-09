@@ -8,6 +8,7 @@ import {UpgradeCreepMemory} from "./upgrade";
 import {BuildCreepMemory} from "./build";
 // import {MoveCreepMemory} from "./move";
 import {RoomData} from "./RoomModule";
+import {MoveCreepMemory} from "./move";
 // import {ExpandCreepMemory, ExpandMemory} from "./expand";
 
 export {}
@@ -70,7 +71,7 @@ declare global {
         //升级creep
         upgrade?: UpgradeCreepMemory;
         //移动属性
-        // move?: MoveCreepMemory;
+        move?: MoveCreepMemory;
         //扩张creep
         // expand?: ExpandCreepMemory;
     }
