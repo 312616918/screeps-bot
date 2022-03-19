@@ -5,6 +5,7 @@ import {Harvest, HarvestMemory} from "./harvest";
 import {Upgrade, UpgradeMemory} from "./upgrade";
 import {Build, BuildMemory} from "./build";
 import {Expand, ExpandMemory} from "./expand";
+import {Move, MoveMemory} from "./move";
 // import {Move, MoveMemory} from "./move";
 
 export type RoomData = {
@@ -19,7 +20,7 @@ export type RoomData = {
     //建造模块
     build: BuildMemory;
     //移动控制模块
-    // move: MoveMemory;
+    move: MoveMemory;
     //扩张模块
     expand: ExpandMemory;
 }
@@ -37,6 +38,7 @@ export class RoomModule {
     private upgrade: Upgrade;
     private build: Build;
     private expand: Expand;
+    private move: Move;
 
     private roomData: RoomData;
 
@@ -61,7 +63,10 @@ export class RoomModule {
             harvest: {
                 creepNameList: []
             },
-            // move: {},
+            move: {
+                pathCache: {},
+                moveRecord: {}
+            },
             upgrade: {
                 creepNameList: []
             },
@@ -85,15 +90,22 @@ export class RoomModule {
         this.harvest = new Harvest(this.roomName, this.roomData.harvest, this.roomData.facility);
         this.upgrade = new Upgrade(this.roomName, this.roomData.upgrade, this.roomData.facility);
         this.build = new Build(this.roomName, this.roomData.build, this.roomData.facility);
-        if (this.roomName == RoomName.W8N24) {
-            this.expand = new Expand(this.roomName, this.roomData.expand, this.roomData.facility);
-        }
+        // if (this.roomName == RoomName.W3N19) {
+        //     this.expand = new Expand(this.roomName, this.roomData.expand, this.roomData.facility);
+        // }
+
+
+        // if (this.roomName == RoomName.W7N18) {
+        //     this.move = new Move(this.roomName, this.roomData.move, this.roomData.facility)
+        //     this.carry.setMove(this.move);
+        // }
     }
 
     //主流程
     public run(): void {
 
         this.facility.refresh()
+        this.facility.initCreepPos()
 
         let room = Game.rooms[this.roomName];
         let drops = room.find(FIND_DROPPED_RESOURCES);
@@ -102,7 +114,6 @@ export class RoomModule {
                 this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
             }
         }
-
 
 
         for (let spawnName of this.roomData.facility.spawnNames) {
@@ -137,10 +148,6 @@ export class RoomModule {
         }
 
 
-
-
-
-
         //1. facility
         this.facility.refresh()
         this.facility.runTower()
@@ -154,6 +161,10 @@ export class RoomModule {
         this.build.run()
         if (this.expand) {
             this.expand.run();
+        }
+        if (this.move) {
+            this.move.moveAll();
+            this.move.cleanCache();
         }
 
 
@@ -174,12 +185,12 @@ export class RoomModule {
         //     // }
         // }
 
-        if (this.roomData.facility.upgrade) {
-            let upgradeLink = Game.getObjectById<StructureLink>(this.roomData.facility.upgrade.linkId)
-            if (upgradeLink && upgradeLink.store.getUsedCapacity("energy") > 0) {
-                this.carry.addCarryReq(upgradeLink, "output", "energy", upgradeLink.store.getUsedCapacity("energy"));
-            }
-        }
+        // if (this.roomData.facility.upgrade) {
+        //     let upgradeLink = Game.getObjectById<StructureLink>(this.roomData.facility.upgrade.linkId)
+        //     if (upgradeLink && upgradeLink.store.getUsedCapacity("energy") > 0) {
+        //         this.carry.addCarryReq(upgradeLink, "output", "energy", upgradeLink.store.getUsedCapacity("energy"));
+        //     }
+        // }
 
 
         // let cs = room.find(FIND_CREEPS).map((s) => s.name);
@@ -197,7 +208,5 @@ export class RoomModule {
         //         this.roomData.upgrade.creepNameList.push(creepName);
         //     }
         // }
-
-
     }
 }

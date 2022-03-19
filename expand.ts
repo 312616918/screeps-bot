@@ -32,7 +32,7 @@ export class Expand {
     protected spawnCreeps() {
 
         // console.log("out sp")
-        if (this.memory.creepNameList.length >= 1) {
+        if (this.memory.creepNameList.length >= 2) {
             return;
         }
         // console.log("in sp")
@@ -40,9 +40,9 @@ export class Expand {
         let creepName = "expand-" + Game.time + "-" + 0;
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, WORK, WORK,WORK,WORK,WORK,
-                CARRY,CARRY,
-                MOVE, MOVE],
+            body: [WORK, WORK, WORK, WORK,
+                CARRY, CARRY,
+                MOVE, MOVE, MOVE, MOVE],
             // body: [WORK, WORK, MOVE],
             // body: [MOVE],
             // body: [CLAIM, MOVE],
@@ -122,9 +122,9 @@ export class Expand {
 
 
             //to target room
-            let targetRoomName = "W7N24";
+            let targetRoomName = "W2N18";
             if (creep.pos.roomName != targetRoomName) {
-                let tarPos = new RoomPosition(5, 9, targetRoomName);
+                let tarPos = new RoomPosition(34, 5, targetRoomName);
                 let flagIndex = 0;
                 if (creep.memory["flagIndex"]) {
                     flagIndex = creep.memory["flagIndex"];
@@ -152,16 +152,12 @@ export class Expand {
             }
 
 
-
             //renew
             // let reRoomName = RoomName.W8N21;
             // if(creep.pos.roomName==reRoomName&&creep.memory["has_renewed"]){
             //     let cont = Game.getObjectById<STRUCTURE_CONTROLLER>("62231161f71be3cac3725456");
             //     if(cont.re)
             // }
-
-
-
 
 
             //claim controller
@@ -172,10 +168,10 @@ export class Expand {
                         visualizePathStyle: {
                             stroke: '#ffffff'
                         },
-                        costCallback: function(roomName, costMatrix) {
-                            if(roomName == "W7N24") {
-                                for(let x = 0;x < 50;x++){
-                                    costMatrix.set(x,0,255)
+                        costCallback: function (roomName, costMatrix) {
+                            if (roomName == "W7N24") {
+                                for (let x = 0; x < 50; x++) {
+                                    costMatrix.set(x, 0, 255)
                                 }
                             }
                         }
@@ -207,8 +203,8 @@ export class Expand {
             // }
 
             //harvest
-            let source = creep.pos.findClosestByRange<FIND_SOURCES>(FIND_SOURCES)
-            // let source = Game.getObjectById<Source>("5bbcac6f9099fc012e63572c")
+            // let source = creep.pos.findClosestByRange<FIND_SOURCES>(FIND_SOURCES)
+            let source = Game.getObjectById<Source>("5bbcacc39099fc012e636284")
             if (creep.harvest(source) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, {
                     visualizePathStyle: {
@@ -218,7 +214,7 @@ export class Expand {
             }
 
             //build
-            if (creep.store.getUsedCapacity("energy") > 30) {
+            if (creep.store.getUsedCapacity("energy") > 20) {
                 let target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
                 creep.build(target);
             }

@@ -33,6 +33,14 @@ export type FacilityMemory = {
         subIds: string[];
     },
     extensionIds?: string[];
+    roadPos?: {
+        //x-y:id
+        [posKey: string]: string;
+    }
+    creepPos?: {
+        //x-y:name
+        [posKey: string]: string;
+    }
 }
 
 export class Facility {
@@ -195,7 +203,7 @@ export class Facility {
             this.fac.upgrade.containerId = containers[0].id;
         }
 
-        let link = pos.findInRange(FIND_STRUCTURES, 1,{
+        let link = pos.findInRange(FIND_STRUCTURES, 1, {
             filter: (s) => {
                 return s.structureType == STRUCTURE_LINK
             }
@@ -262,8 +270,25 @@ export class Facility {
             }
         }).map(s => s.id)
 
-
+        //raods
+        this.fac.roadPos = {}
+        let roads = this.room.find(FIND_STRUCTURES, {
+            filter: (s) => {
+                return s.structureType == STRUCTURE_ROAD;
+            }
+        })
+        for (let road of roads) {
+            this.fac.roadPos[`${road.pos.x}-${road.pos.y}`] = road.id;
+        }
     };
+
+    public initCreepPos(): void {
+        let sc = this.room.find(FIND_MY_CREEPS);
+        this.fac.creepPos = {}
+        for (let c of sc) {
+            this.fac.creepPos[`${c.pos.x}-${c.pos.y}`] = c.name;
+        }
+    }
 
 
     public runTower(): void {

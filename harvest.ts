@@ -60,9 +60,10 @@ export class Harvest {
             if (remainTicks != undefined && remainTicks > 20) {
                 continue;
             }
+            let partConfig = cc.parts ? cc.parts : sourceConfig.defaultParts;
             let bodys: BodyPartConstant[] = [];
-            for (let part in sourceConfig.defaultParts) {
-                let partAmount = sourceConfig.defaultParts[part];
+            for (let part in partConfig) {
+                let partAmount = partConfig[part];
                 bodys = bodys.concat(new Array(partAmount).fill(part))
             }
             let room = Game.rooms[this.roomName];
@@ -146,10 +147,10 @@ export class Harvest {
             }
             if (creep.store.getUsedCapacity("energy") > 20) {
 
-                let targets = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES,3);
-                if(targets.length){
-                    let drop = creep.pos.findInRange(FIND_DROPPED_RESOURCES,1);
-                    if(drop.length){
+                let targets = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3);
+                if (targets.length) {
+                    let drop = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1);
+                    if (drop.length) {
                         creep.pickup(drop[0]);
                     }
                     creep.build(targets[0]);
@@ -157,9 +158,9 @@ export class Harvest {
 
             }
 
-            if(this.fac.sources[creep.memory.harvest.targetId].controllerId){
+            if (this.fac.sources[creep.memory.harvest.targetId].controllerId) {
                 let controller = Game.getObjectById<StructureController>(this.fac.sources[creep.memory.harvest.targetId].controllerId)
-                if(controller){
+                if (controller) {
                     creep.upgradeController(controller);
                 }
             }

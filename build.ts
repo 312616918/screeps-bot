@@ -1,4 +1,3 @@
-import {BaseModule} from "./baseModule";
 import {globalConfig, RoomName} from "./globalConfig";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
@@ -39,11 +38,17 @@ export class Build {
             return;
         }
 
+        let bodys: BodyPartConstant[] = [];
+        for (let part in globalConfig[this.roomName].build.defaultParts) {
+            let partAmount = globalConfig[this.roomName].build.defaultParts[part];
+            bodys = bodys.concat(new Array(partAmount).fill(part))
+        }
+
         let creepName = `build-${this.roomName}-${Game.time}`;
 
         Spawn.reserveCreep({
             bakTick: 0,
-            body: [WORK, CARRY, MOVE],
+            body: bodys,
             memory: {
                 module: "build",
                 build: {

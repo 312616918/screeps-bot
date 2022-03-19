@@ -45,6 +45,9 @@ declare global {
 
         roomData: {
             [roomName in RoomName]?: RoomData;
+        },
+        status: {
+            bucketTime: number;
         }
     }
 

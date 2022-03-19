@@ -5,11 +5,13 @@
         "jsx": "preserve",
         "strictFunctionTypes": true,
         "sourceMap": true,
-        "outDir": "C:\\Users\\31261\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default"
+        "outDir": "C:\\Users\\31261\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default",
+        "allowJs": true
     },
     "exclude": [
         "node_modules",
         "**/node_modules/*",
-        "ts_bak"
+        "ts_bak",
+        "old"
     ]
 }

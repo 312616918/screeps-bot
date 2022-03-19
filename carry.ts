@@ -2,6 +2,7 @@ import {globalConfig, RoomName} from "./globalConfig";
 import {Spawn} from "./spawn";
 import * as _ from "lodash";
 import {FacilityMemory} from "./facility";
+import {Move} from "./move";
 
 type CarryTaskType = "output" | "input" | "pickup";
 type ObjectWithPos = Structure | Creep | Ruin | Resource | Tombstone;
@@ -52,6 +53,7 @@ export class Carry {
     protected storage: StructureStorage;
     protected memory: CarryMemory;
     protected fac: FacilityMemory;
+    private move: Move;
 
     public static entities: {
         [roomName in RoomName]?: Carry
@@ -62,10 +64,12 @@ export class Carry {
         this.memory = memory;
         this.fac = fac;
 
-        // this.memory.taskMap = {}
-
         this.storage = Game.getObjectById<StructureStorage>(fac.storageId);
         Carry.entities[roomName] = this;
+    }
+
+    public setMove(value: Move) {
+        this.move = value;
     }
 
     protected spawnCreeps(): void {
@@ -129,19 +133,23 @@ export class Carry {
                     }
                     continue;
                 }
-                creep.moveTo(this.storage, {
-                    visualizePathStyle: {
-                        stroke: '#ffffff'
-                    },
-                    costCallback: function(roomName, costMatrix) {
-                        if(roomName == "W7N24") {
-                            for(let x = 0;x < 50;x++){
-                                costMatrix.set(x,0,255)
-                                costMatrix.set(x,1,0)
+                if (this.move) {
+                    this.move.reserveMove(creep, this.storage.pos, 1);
+                } else {
+                    creep.moveTo(this.storage, {
+                        visualizePathStyle: {
+                            stroke: '#ffffff'
+                        },
+                        costCallback: function (roomName, costMatrix) {
+                            if (roomName == "W7N24") {
+                                for (let x = 0; x < 50; x++) {
+                                    costMatrix.set(x, 0, 255)
+                                    costMatrix.set(x, 1, 0)
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
                 // let moveModule=Move.entities[this.roomName];
                 // if(moveModule){
                 //     moveModule.reserveMove(creep,this.storage.pos,1);
@@ -160,23 +168,23 @@ export class Carry {
                 this.finishTask(creepName, 0, 0);
                 continue;
             }
-            creep.moveTo(target, {
-                visualizePathStyle: {
-                    stroke: '#ffffff'
-                },
-                costCallback: function(roomName, costMatrix) {
-                    if(roomName == "W7N24") {
-                        for(let x = 0;x < 50;x++){
-                            costMatrix.set(x,0,255)
-                            costMatrix.set(x,1,0)
+            if (this.move) {
+                this.move.reserveMove(creep, target.pos, 1);
+            } else {
+                creep.moveTo(target, {
+                    visualizePathStyle: {
+                        stroke: '#ffffff'
+                    },
+                    costCallback: function (roomName, costMatrix) {
+                        if (roomName == "W7N24") {
+                            for (let x = 0; x < 50; x++) {
+                                costMatrix.set(x, 0, 255)
+                                costMatrix.set(x, 1, 0)
+                            }
                         }
                     }
-                }
-            });
-            // let moveModule=Move.entities[this.roomName];
-            // if(moveModule){
-            //     moveModule.reserveMove(creep,target.pos,1);
-            // }
+                });
+            }
             if (curTask.carryType == "output") {
                 let res = creep.withdraw(<Structure | Ruin | Tombstone>target, curTask.resourceType, curTaskRecord.reserved);
                 if (res == ERR_NOT_ENOUGH_RESOURCES) {
@@ -198,23 +206,23 @@ export class Carry {
                             Math.min(curTaskRecord.reserved, this.storage.store.getUsedCapacity(curTask.resourceType)))
                         continue;
                     }
-                    creep.moveTo(this.storage, {
-                        visualizePathStyle: {
-                            stroke: '#ffffff'
-                        },
-                        costCallback: function(roomName, costMatrix) {
-                            if(roomName == "W7N24") {
-                                for(let x = 0;x < 50;x++){
-                                    costMatrix.set(x,0,255)
-                                    costMatrix.set(x,1,0)
+                    if (this.move) {
+                        this.move.reserveMove(creep, this.storage.pos, 1);
+                    } else {
+                        creep.moveTo(this.storage, {
+                            visualizePathStyle: {
+                                stroke: '#ffffff'
+                            },
+                            costCallback: function (roomName, costMatrix) {
+                                if (roomName == "W7N24") {
+                                    for (let x = 0; x < 50; x++) {
+                                        costMatrix.set(x, 0, 255)
+                                        costMatrix.set(x, 1, 0)
+                                    }
                                 }
                             }
-                        }
-                    });
-                    // let moveModule=Move.entities[this.roomName];
-                    // if(moveModule){
-                    //     moveModule.reserveMove(creep,this.storage.pos,1);
-                    // }
+                        });
+                    }
                     continue;
                 }
                 let maxTranAmount = Math.min(creep.store.getUsedCapacity(curTask.resourceType),
@@ -265,7 +273,7 @@ export class Carry {
                 }
             }
             let obj = Game.getObjectById<Structure | Creep>(task.objId);
-            if(!obj){
+            if (!obj) {
                 continue
             }
             let taskPos = obj.pos;
