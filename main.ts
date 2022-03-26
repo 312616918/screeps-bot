@@ -28,14 +28,14 @@ function main() {
     let bucket = Game.cpu.bucket;
     console.log("[CPU]:" + Game.cpu.getUsed().toFixed(2) + "  [BUCKET]:" + bucket)
 
-    if (Game.time % 100 == 0) {
+    if (Game.time % 10 == 0) {
         if (!Memory.status) {
             Memory.status = {
                 bucketTime: Game.time
             }
         }
 
-        if (bucket >= 10000 && Game.time - Memory.status.bucketTime >= 200) {
+        if (bucket >= 10000 && Game.time - Memory.status.bucketTime >= 10) {
             Game.cpu.generatePixel();
         }
         Memory.status.bucketTime = Game.time;

@@ -168,24 +168,24 @@ export class Carry {
                 this.finishTask(creepName, 0, 0);
                 continue;
             }
-            if (this.move) {
-                this.move.reserveMove(creep, target.pos, 1);
-            } else {
-                creep.moveTo(target, {
-                    visualizePathStyle: {
-                        stroke: '#ffffff'
-                    },
-                    costCallback: function (roomName, costMatrix) {
-                        if (roomName == "W7N24") {
-                            for (let x = 0; x < 50; x++) {
-                                costMatrix.set(x, 0, 255)
-                                costMatrix.set(x, 1, 0)
+            if (curTask.carryType == "output") {
+                if (this.move) {
+                    this.move.reserveMove(creep, target.pos, 1);
+                } else {
+                    creep.moveTo(target, {
+                        visualizePathStyle: {
+                            stroke: '#ffffff'
+                        },
+                        costCallback: function (roomName, costMatrix) {
+                            if (roomName == "W7N24") {
+                                for (let x = 0; x < 50; x++) {
+                                    costMatrix.set(x, 0, 255)
+                                    costMatrix.set(x, 1, 0)
+                                }
                             }
                         }
-                    }
-                });
-            }
-            if (curTask.carryType == "output") {
+                    });
+                }
                 let res = creep.withdraw(<Structure | Ruin | Tombstone>target, curTask.resourceType, curTaskRecord.reserved);
                 if (res == ERR_NOT_ENOUGH_RESOURCES) {
                     res = creep.withdraw(<Structure | Ruin | Tombstone>target, curTask.resourceType);
@@ -225,6 +225,23 @@ export class Carry {
                     }
                     continue;
                 }
+                if (this.move) {
+                    this.move.reserveMove(creep, target.pos, 1);
+                } else {
+                    creep.moveTo(target, {
+                        visualizePathStyle: {
+                            stroke: '#ffffff'
+                        },
+                        costCallback: function (roomName, costMatrix) {
+                            if (roomName == "W7N24") {
+                                for (let x = 0; x < 50; x++) {
+                                    costMatrix.set(x, 0, 255)
+                                    costMatrix.set(x, 1, 0)
+                                }
+                            }
+                        }
+                    });
+                }
                 let maxTranAmount = Math.min(creep.store.getUsedCapacity(curTask.resourceType),
                     20)
                 let res = creep.transfer(<AnyCreep | Structure>target, curTask.resourceType);
@@ -234,6 +251,23 @@ export class Carry {
                 continue;
             }
             if (curTask.carryType == "pickup") {
+                if (this.move) {
+                    this.move.reserveMove(creep, target.pos, 1);
+                } else {
+                    creep.moveTo(target, {
+                        visualizePathStyle: {
+                            stroke: '#ffffff'
+                        },
+                        costCallback: function (roomName, costMatrix) {
+                            if (roomName == "W7N24") {
+                                for (let x = 0; x < 50; x++) {
+                                    costMatrix.set(x, 0, 255)
+                                    costMatrix.set(x, 1, 0)
+                                }
+                            }
+                        }
+                    });
+                }
                 let res = creep.pickup(<Resource>target);
                 if (res != ERR_NOT_IN_RANGE) {
                     this.finishTask(creepName, 0, curTaskRecord.reserved)

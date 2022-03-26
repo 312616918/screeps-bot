@@ -73,19 +73,13 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 4,
-                carry: 2,
-                move: 2
+                work: 16,
+                carry: 1,
+                move: 4
             },
             creepConfigs: [{
                 pos: new RoomPosition(35, 13, RoomName.W7N18)
-            }
-                , {
-                    pos: new RoomPosition(36, 13, RoomName.W7N18)
-                }, {
-                    pos: new RoomPosition(36, 12, RoomName.W7N18)
-                }
-            ]
+            }]
         },
         build: {
             amount: 1,
@@ -161,26 +155,24 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 4,
-                carry: 2,
-                move: 2
+                work: 6,
+                carry: 1,
+                move: 3
             },
             creepConfigs: [{
                 pos: new RoomPosition(31, 13, RoomName.W8N21)
-            }
-                // ,{
-                //     pos: new RoomPosition(30, 12, RoomName.W8N21)
-                // },{
-                //     pos: new RoomPosition(32, 13, RoomName.W8N21)
-                // }
-            ]
+            }, {
+                pos: new RoomPosition(30, 13, RoomName.W8N21)
+            }, {
+                pos: new RoomPosition(29, 13, RoomName.W8N21)
+            }]
         },
         build: {
             amount: 1,
             defaultParts: {
-                work: 1,
-                carry: 1,
-                move: 1
+                work: 6,
+                carry: 2,
+                move: 3
             }
         }
     },
@@ -194,9 +186,9 @@ export const globalConfig: Config = {
         },
         harvest: {
             defaultParts: {
-                work: 2,
+                work: 5,
                 carry: 1,
-                move: 1
+                move: 3
             },
             creepConfigs: [{
                 pos: new RoomPosition(46, 38, RoomName.W4N22)
@@ -206,16 +198,16 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 1,
+                work: 5,
                 carry: 1,
                 move: 1
             },
             creepConfigs: [{
-                pos: new RoomPosition(42, 37, RoomName.W4N22)
+                pos: new RoomPosition(38, 41, RoomName.W4N22)
             }, {
-                pos: new RoomPosition(41, 38, RoomName.W4N22)
+                pos: new RoomPosition(39, 40, RoomName.W4N22)
             }, {
-                pos: new RoomPosition(40, 39, RoomName.W4N22)
+                pos: new RoomPosition(39, 39, RoomName.W4N22)
             }]
         },
         build: {
@@ -258,14 +250,14 @@ export const globalConfig: Config = {
             }, {
                 pos: new RoomPosition(12, 17, RoomName.W8N24)
             }, {
-                pos: new RoomPosition(13, 18, RoomName.W8N24)
+                pos: new RoomPosition(12, 15, RoomName.W8N24)
             }]
         },
         build: {
             amount: 1,
             defaultParts: {
-                work: 1,
-                carry: 1,
+                work: 5,
+                carry: 2,
                 move: 1
             }
         }
@@ -280,9 +272,9 @@ export const globalConfig: Config = {
         },
         harvest: {
             defaultParts: {
-                work: 2,
+                work: 5,
                 carry: 1,
-                move: 1
+                move: 5
             },
             creepConfigs: [{
                 pos: new RoomPosition(16, 6, RoomName.W7N24),
@@ -297,9 +289,9 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 2,
+                work: 10,
                 carry: 1,
-                move: 1
+                move: 5
             },
             creepConfigs: [{
                 pos: new RoomPosition(39, 24, RoomName.W7N24)
@@ -308,15 +300,15 @@ export const globalConfig: Config = {
         build: {
             amount: 1,
             defaultParts: {
-                work: 1,
-                carry: 1,
-                move: 1
+                work: 5,
+                carry: 4,
+                move: 2
             }
         }
     },
     W2N18: {
         carry: {
-            amount: 4,
+            amount: 2,
             defaultParts: {
                 carry: 2,
                 move: 1

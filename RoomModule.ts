@@ -64,8 +64,7 @@ export class RoomModule {
                 creepNameList: []
             },
             move: {
-                pathCache: {},
-                moveRecord: {}
+                pathCache: {}
             },
             upgrade: {
                 creepNameList: []
@@ -96,8 +95,8 @@ export class RoomModule {
 
 
         // if (this.roomName == RoomName.W7N18) {
-        //     this.move = new Move(this.roomName, this.roomData.move, this.roomData.facility)
-        //     this.carry.setMove(this.move);
+        this.move = new Move(this.roomName, this.roomData.move, this.roomData.facility)
+        this.carry.setMove(this.move);
         // }
     }
 
@@ -112,6 +111,18 @@ export class RoomModule {
         if (drops.length != 0) {
             for (let drop of drops) {
                 this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
+            }
+        }
+
+        let ruins = room.find(FIND_RUINS);
+        if (ruins.length != 0) {
+            for (let r of ruins) {
+                for (let type in r.store) {
+                    let sAmount = r.store.getUsedCapacity(<ResourceConstant>type);
+                    if (sAmount) {
+                        this.carry.addCarryReq(r, "output", <ResourceConstant>type, sAmount);
+                    }
+                }
             }
         }
 

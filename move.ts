@@ -3,7 +3,6 @@ import {FacilityMemory} from "./facility";
 
 export type MoveMemory = {
     pathCache: PathCache;
-    moveRecord: MoveRecord;
 }
 
 type PathCache = {
@@ -27,7 +26,7 @@ export type MoveCreepMemory = {
     //last tick index
     index: number;
     toPos: RoomPosition;
-    conflictName:string;
+    conflictName: string;
 }
 
 function getReverseDir(dir: DirectionConstant): DirectionConstant {
@@ -39,11 +38,14 @@ export class Move {
     protected memory: MoveMemory;
     protected fac: FacilityMemory;
 
+    protected moveRecord: MoveRecord;
+
 
     public constructor(roomName: RoomName, m: MoveMemory, f: FacilityMemory) {
         this.roomName = roomName;
         this.memory = m;
         this.fac = f;
+        this.moveRecord = {};
     }
 
     public reserveMove(creep: Creep, toPos: RoomPosition, range: number): void {
@@ -51,10 +53,16 @@ export class Move {
             return;
         }
 
+        //multi reserve
+        if (this.moveRecord[creep.name]) {
+            console.log("warn:multi move" + creep.name);
+        }
+
         //target has changed
         if (creep.memory.move) {
             let memoryToPos = creep.memory.move.toPos;
             if (memoryToPos.x != toPos.x || memoryToPos.y != toPos.y) {
+                console.log("target changed:" + creep.name + JSON.stringify(memoryToPos) + JSON.stringify(toPos))
                 creep.memory.move = null;
             }
         }
@@ -70,29 +78,36 @@ export class Move {
                 pathId: `${fromPos.x}-${fromPos.y}#${toPos.x}-${toPos.y}#${range}`,
                 index: -1,
                 toPos: toPos,
-                conflictName:null
+                conflictName: null
             }
         }
         let pathCache = this.memory.pathCache[creep.memory.move.pathId];
         //find/init cache
         if (!pathCache) {
             console.log("find path")
-            let creepPos = this.fac.creepPos;
+            let roadPos = this.fac.roadPos;
             pathCache = this.memory.pathCache[creepMemory.pathId] = {
                 paths: room.findPath(creep.pos, toPos, {
                     range: range,
                     costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
-                        if (roomName == "W7N24") {
-                            for (let x = 0; x < 50; x++) {
-                                costMatrix.set(x, 0, 255)
+                        // if (roomName == "W7N24") {
+                        //     for (let x = 0; x < 50; x++) {
+                        //         costMatrix.set(x, 0, 255)
+                        //     }
+                        // }
+                        try {
+                            for (let i = 0; i < 50; i++) {
+                                costMatrix.set(i, 0, 255)
+                                costMatrix.set(i, 49, 255)
+                                costMatrix.set(0, i, 255)
+                                costMatrix.set(49, i, 255)
                             }
-                        }
-                        try{
-                            for (let posKey in creepPos) {
+
+                            for (let posKey in roadPos) {
                                 let pos = posKey.split("-")
                                 costMatrix.set(Number(pos[0]), Number(pos[1]), 1)
                             }
-                        }catch (e){
+                        } catch (e) {
                             console.log(e.stack);
                         }
                     }
@@ -114,16 +129,17 @@ export class Move {
             } else {
                 //last tick failed
                 let posKey = `${nextStep.x}-${nextStep.y}`
-                console.log("move look for")
                 let cName = this.fac.creepPos[posKey];
+                console.log("move look for " + cName + " " + posKey)
                 if (cName && this.fac.roadPos[posKey]) {
+                    console.log("ask move " + cName)
                     let c = Game.creeps[cName];
                     //mark other move
                     creepMemory.conflictName = cName;
-                    if (!this.memory.moveRecord[cName]) {
-                        this.memory.moveRecord[cName] = {}
+                    if (!this.moveRecord[cName]) {
+                        this.moveRecord[cName] = {}
                     }
-                    this.memory.moveRecord[cName].passiveDir = getReverseDir(nextStep.direction);
+                    this.moveRecord[cName].passiveDir = getReverseDir(nextStep.direction);
                 }
             }
             if (creep.pos.getRangeTo(nextStep.x, nextStep.y) > 1) {
@@ -133,24 +149,27 @@ export class Move {
                 this.memory.pathCache[creepMemory.pathId] = null;
                 return;
             }
-            if (!this.memory.moveRecord[creep.name]) {
-                this.memory.moveRecord[creep.name] = {}
+            if (!this.moveRecord[creep.name]) {
+                this.moveRecord[creep.name] = {}
             }
-            this.memory.moveRecord[creep.name].activeDir = nextStep.direction;
+            this.moveRecord[creep.name].activeDir = nextStep.direction;
         } catch (e) {
             console.log(`move something is wrong ${creep.name} ${creepMemory.index} ${JSON.stringify(pathCache)}`);
             creep.memory.move = null;
+            if (pathCache && !pathCache.paths.length) {
+                delete this.memory.pathCache[creepMemory.pathId];
+            }
             console.log(e.stack)
         }
     }
 
     public moveAll(): void {
-        for (let creepName in this.memory.moveRecord) {
+        for (let creepName in this.moveRecord) {
             let creep = Game.creeps[creepName];
             if (!creep) {
                 continue;
             }
-            let record = this.memory.moveRecord[creepName];
+            let record = this.moveRecord[creepName];
             if (record.activeDir) {
                 creep.move(record.activeDir);
             } else if (record.passiveDir) {
@@ -166,7 +185,7 @@ export class Move {
                 }
             }
         }
-        this.memory.moveRecord = {};
+        this.moveRecord = {};
     }
 
     public cleanCache(): void {
@@ -175,7 +194,8 @@ export class Move {
         }
         for (let id in this.memory.pathCache) {
             let cache = this.memory.pathCache[id];
-            if (!cache.createTime || Game.time - cache.createTime >= 1000
+            if (!cache
+                || !cache.createTime || Game.time - cache.createTime >= 1000
                 || !cache.refreshTime || Game.time - cache.refreshTime >= 100) {
                 console.log(`delete pathCache: ${id}`);
                 delete this.memory.pathCache[id];
