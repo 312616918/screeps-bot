@@ -25,6 +25,7 @@ export type FacilityMemory = {
     terminalId?: string,
     storageId?: string,
     centerLinkId?: string,
+    linkIds?: string[];
     towerIds?: string[],
     spawnNames?: string[],
     labIds?: string[],
@@ -280,6 +281,13 @@ export class Facility {
         for (let road of roads) {
             this.fac.roadPos[`${road.pos.x}-${road.pos.y}`] = road.id;
         }
+
+        //links
+        this.fac.linkIds = this.room.find(FIND_MY_STRUCTURES, {
+            filter: (s) => {
+                return s.structureType == STRUCTURE_LINK;
+            }
+        }).map(s => s.id)
     };
 
     public initCreepPos(): void {

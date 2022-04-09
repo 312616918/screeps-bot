@@ -27,6 +27,7 @@ export type MoveCreepMemory = {
     index: number;
     toPos: RoomPosition;
     conflictName: string;
+    blockTick: number;
 }
 
 function getReverseDir(dir: DirectionConstant): DirectionConstant {
@@ -54,15 +55,15 @@ export class Move {
         }
 
         //multi reserve
-        if (this.moveRecord[creep.name]) {
-            console.log("warn:multi move" + creep.name);
-        }
+        // if (this.moveRecord[creep.name]) {
+        //     console.log("warn:multi move" + creep.name);
+        // }
 
         //target has changed
         if (creep.memory.move) {
             let memoryToPos = creep.memory.move.toPos;
             if (memoryToPos.x != toPos.x || memoryToPos.y != toPos.y) {
-                console.log("target changed:" + creep.name + JSON.stringify(memoryToPos) + JSON.stringify(toPos))
+                // console.log("target changed:" + creep.name + JSON.stringify(memoryToPos) + JSON.stringify(toPos))
                 creep.memory.move = null;
             }
         }
@@ -78,13 +79,14 @@ export class Move {
                 pathId: `${fromPos.x}-${fromPos.y}#${toPos.x}-${toPos.y}#${range}`,
                 index: -1,
                 toPos: toPos,
-                conflictName: null
+                conflictName: null,
+                blockTick: 0
             }
         }
         let pathCache = this.memory.pathCache[creep.memory.move.pathId];
         //find/init cache
         if (!pathCache) {
-            console.log("find path")
+            // console.log("find path")
             let roadPos = this.fac.roadPos;
             pathCache = this.memory.pathCache[creepMemory.pathId] = {
                 paths: room.findPath(creep.pos, toPos, {
@@ -130,9 +132,9 @@ export class Move {
                 //last tick failed
                 let posKey = `${nextStep.x}-${nextStep.y}`
                 let cName = this.fac.creepPos[posKey];
-                console.log("move look for " + cName + " " + posKey)
+                // console.log("move look for " + cName + " " + posKey)
                 if (cName && this.fac.roadPos[posKey]) {
-                    console.log("ask move " + cName)
+                    // console.log("ask move " + cName)
                     let c = Game.creeps[cName];
                     //mark other move
                     creepMemory.conflictName = cName;

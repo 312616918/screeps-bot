@@ -53,7 +53,7 @@ type Config = {
 export const globalConfig: Config = {
     W7N18: {
         carry: {
-            amount: 4,
+            amount: 3,
             defaultParts: {
                 carry: 4,
                 move: 2
@@ -135,7 +135,7 @@ export const globalConfig: Config = {
     },
     W8N21: {
         carry: {
-            amount: 4,
+            amount: 3,
             defaultParts: {
                 carry: 4,
                 move: 2
@@ -155,16 +155,12 @@ export const globalConfig: Config = {
         },
         upgrade: {
             defaultParts: {
-                work: 6,
+                work: 5,
                 carry: 1,
                 move: 3
             },
             creepConfigs: [{
                 pos: new RoomPosition(31, 13, RoomName.W8N21)
-            }, {
-                pos: new RoomPosition(30, 13, RoomName.W8N21)
-            }, {
-                pos: new RoomPosition(29, 13, RoomName.W8N21)
             }]
         },
         build: {
@@ -221,7 +217,7 @@ export const globalConfig: Config = {
     },
     W8N24: {
         carry: {
-            amount: 4,
+            amount: 3,
             defaultParts: {
                 carry: 4,
                 move: 2
@@ -317,7 +313,7 @@ export const globalConfig: Config = {
         harvest: {
             defaultParts: {
                 work: 2,
-                carry: 0,
+                carry: 1,
                 move: 1
             },
             creepConfigs: [{
@@ -345,4 +341,17 @@ export const globalConfig: Config = {
             }
         }
     }
+}
+
+
+export function getBodyParts(config: PartConfig, maxNum = -1): BodyPartConstant[] {
+    let bodys: BodyPartConstant[] = [];
+    for (let part in config) {
+        let partAmount = config[part];
+        if (maxNum >= 0 && partAmount > maxNum) {
+            partAmount = maxNum;
+        }
+        bodys = bodys.concat(new Array(partAmount).fill(part))
+    }
+    return bodys;
 }

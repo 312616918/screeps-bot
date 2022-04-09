@@ -179,6 +179,10 @@ export class RoomModule {
         }
 
 
+        if (Game.time % 1000 == 0) {
+            this.carry.checkReserved();
+        }
+
         //3. arrange carry
         // let sourceConfig = Memory.facility[this.roomName].sources;
         // if (sourceConfig) {
