@@ -25,6 +25,15 @@ export type RoomData = {
     expand: ExpandMemory;
 }
 
+// 运行时上下文
+type RoomContext = {
+    facMemory:Facility;
+    // 初始化
+    moveModule: Move;
+    carryModule: Carry;
+
+}
+
 
 export class RoomModule {
 
@@ -160,7 +169,9 @@ export class RoomModule {
 
 
         //1. facility
-        this.facility.refresh()
+        if (Game.time % 10 == 0) {
+            this.facility.refresh()
+        }
         this.facility.runTower()
         this.facility.runLink()
 

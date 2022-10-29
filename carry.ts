@@ -17,6 +17,10 @@ export type CarryMemory = {
         [taskId: string]: CarryTask;
     }
 
+    logicTaskMap: {
+        [taskId: string]: LogicCarryTask;
+    }
+
 }
 
 type CarryTask = {
@@ -26,6 +30,24 @@ type CarryTask = {
     resourceType: ResourceConstant;
     amount: number;
     reserved: number;
+}
+
+type LogicCarryTask = {
+    id: string;
+    objId: string;
+    carryType: CarryTaskType;
+    resourceType: ResourceConstant;
+    amount: number;
+    steps: TaskStep[];
+}
+
+type TaskStep = {
+    type: "carry" | "send";
+    fromId: string;
+    toId: string;
+    fromType: "withdraw" | "pickup";
+    amount: number;
+    reserve: number;
 }
 
 /**
@@ -42,20 +64,13 @@ export type CarryCreepMemory = {
     roomName: RoomName;
 
     hasBusyTask: boolean;
+
+    logicTaskId?: string;
+    stepIdx?: number;
+    reserve?: number;
+    status?: "first" | "second";
 }
 
-
-type LinkTask = {
-    targetId: string;
-    amount: number;
-    ddl: number;
-}
-
-type LinkStatus = {
-    // 每tick变化量
-    vpt: number;
-    tasks: LinkTask[];
-}
 
 export class Carry {
 
@@ -64,6 +79,7 @@ export class Carry {
     protected memory: CarryMemory;
     protected fac: FacilityMemory;
     private move: Move;
+    private _isNewCarry: boolean = false;
 
     public static entities: {
         [roomName in RoomName]?: Carry
@@ -80,6 +96,10 @@ export class Carry {
 
     public setMove(value: Move) {
         this.move = value;
+    }
+
+    set isNewCarry(value: boolean) {
+        this._isNewCarry = value;
     }
 
     protected spawnCreeps(): void {
@@ -113,7 +133,13 @@ export class Carry {
     }
 
     public run(): void {
+        let nameSet = {}
         for (let creepName of this.memory.creepNameList) {
+            if (nameSet[creepName]) {
+                console.log(`creep name duplicate: ${this.roomName} ${creepName}`);
+                continue;
+            }
+            nameSet[creepName] = true
             let creep = Game.creeps[creepName];
             if (!Game.creeps[creepName] || !creep) {
                 this.recoveryCreep(creepName);
@@ -127,42 +153,43 @@ export class Carry {
             }
 
             if (creepMemory.taskRecordList.length == 0) {
-                if (creep.store.getUsedCapacity() == 0) {
-                    continue;
-                }
-
-                // should not execute here
-                if (!this.storage) {
-                    continue;
-                }
-                if (creep.pos.getRangeTo(this.storage) == 1) {
-                    for (let resourceType in creep.store) {
-                        creep.transfer(this.storage, <ResourceConstant>resourceType, creep.store.getUsedCapacity(<ResourceConstant>resourceType));
-                    }
-                    continue;
-                }
-                if (this.move) {
-                    this.move.reserveMove(creep, this.storage.pos, 1);
-                } else {
-                    creep.moveTo(this.storage, {
-                        visualizePathStyle: {
-                            stroke: '#ffffff'
-                        },
-                        costCallback: function (roomName, costMatrix) {
-                            if (roomName == "W7N24") {
-                                for (let x = 0; x < 50; x++) {
-                                    costMatrix.set(x, 0, 255)
-                                    costMatrix.set(x, 1, 0)
-                                }
-                            }
-                        }
-                    });
-                }
-                // let moveModule=Move.entities[this.roomName];
-                // if(moveModule){
-                //     moveModule.reserveMove(creep,this.storage.pos,1);
-                // }
                 continue;
+                // if (creep.store.getUsedCapacity() == 0) {
+                //     continue;
+                // }
+                //
+                // // should not execute here
+                // if (!this.storage) {
+                //     continue;
+                // }
+                // if (creep.pos.getRangeTo(this.storage) == 1) {
+                //     for (let resourceType in creep.store) {
+                //         creep.transfer(this.storage, <ResourceConstant>resourceType, creep.store.getUsedCapacity(<ResourceConstant>resourceType));
+                //     }
+                //     continue;
+                // }
+                // if (this.move) {
+                //     this.move.reserveMove(creep, this.storage.pos, 1);
+                // } else {
+                //     creep.moveTo(this.storage, {
+                //         visualizePathStyle: {
+                //             stroke: '#ffffff'
+                //         },
+                //         costCallback: function (roomName, costMatrix) {
+                //             if (roomName == "W7N24") {
+                //                 for (let x = 0; x < 50; x++) {
+                //                     costMatrix.set(x, 0, 255)
+                //                     costMatrix.set(x, 1, 0)
+                //                 }
+                //             }
+                //         }
+                //     });
+                // }
+                // // let moveModule=Move.entities[this.roomName];
+                // // if(moveModule){
+                // //     moveModule.reserveMove(creep,this.storage.pos,1);
+                // // }
+                // continue;
             }
 
             // execute task
@@ -251,10 +278,10 @@ export class Carry {
                         }
                     });
                 }
-                let maxTranAmount = Math.min(creep.store.getUsedCapacity(curTask.resourceType),
-                    20)
-                let res = creep.transfer(<AnyCreep | Structure>target, curTask.resourceType);
-                if (res != ERR_NOT_IN_RANGE) {
+                if (creep.pos.getRangeTo(target) <= 1) {
+                    let maxTranAmount = Math.min(creep.store.getUsedCapacity(curTask.resourceType),
+                        20)
+                    let res = creep.transfer(<AnyCreep | Structure>target, curTask.resourceType);
                     this.finishTask(creepName, 0, curTaskRecord.reserved)
                 }
                 continue;
@@ -292,6 +319,106 @@ export class Carry {
             }
             if (!task.id) {
                 task.id = taskId;
+            }
+        }
+    }
+
+    protected runNew(): void {
+        this.memory.creepNameList.forEach(name => {
+            let creep = Game.creeps[name];
+            let creepMemory = creep.memory.carry;
+            if (!creepMemory.logicTaskId) {
+                return;
+            }
+            let task = this.memory.logicTaskMap[creepMemory.logicTaskId];
+            let step = task.steps[creepMemory.stepIdx];
+            switch (step.type) {
+                case "carry":
+                    switch (creepMemory.status) {
+                        case "first":
+                            let fromObj = Game.getObjectById<ObjectWithPos>(step.fromId);
+                            let res = step.fromType == "withdraw"
+                                  ? creep.withdraw(<Structure | Tombstone | Ruin>fromObj, task.resourceType)
+                                : creep.pickup(<Resource>fromObj);
+                            if (res == OK) {
+                                creepMemory.status = "second";
+                            } else {
+                                this.move.reserveMove(creep, fromObj.pos, 1)
+                            }
+                            break;
+                        case "second":
+                            let toObj = Game.getObjectById<AnyCreep | Structure>(step.toId);
+                            if (creep.transfer(toObj, task.resourceType) == OK) {
+                                creepMemory.status = null;
+                                creepMemory.stepIdx = null;
+                                creepMemory.logicTaskId = null;
+                                step.reserve -= creepMemory.reserve;
+                                step.amount -= creepMemory.reserve;
+                            } else {
+                                this.move.reserveMove(creep, toObj.pos, 1)
+                            }
+                            break;
+
+
+                    }
+
+            }
+        });
+
+    }
+
+    protected arrangeCreep() {
+
+    }
+
+    protected arrangeStep(task: LogicCarryTask): void {
+        task.steps = [];
+        for (const name of this.memory.creepNameList) {
+            let creep = Game.creeps[name];
+            if (creep.memory.carry.logicTaskId) {
+                continue;
+            }
+            switch (task.carryType) {
+                case "output":
+                case "pickup":
+                    if (creep.store.getFreeCapacity() > 0) {
+                        task.steps.push({
+                            type: "carry",
+                            fromId: task.objId,
+                            toId: this.storage ? this.storage.id : null,
+                            fromType: task.carryType == "pickup" ? "pickup" : "withdraw",
+                            amount: task.amount,
+                            reserve: 0
+                        })
+                    }
+                    break;
+                case "input":
+                    if (creep.store.getUsedCapacity(task.resourceType) > 0) {
+                        task.steps.push({
+                            type: "carry",
+                            fromId: null,
+                            toId: task.objId,
+                            fromType: null,
+                            amount: task.amount,
+                            reserve: 0
+                        })
+                        break;
+                    }
+
+                    if (this.storage && this.storage.store.getUsedCapacity(task.resourceType) > 0) {
+                        task.steps.push({
+                            type: "carry",
+                            fromId: this.storage.id,
+                            toId: task.objId,
+                            fromType: "withdraw",
+                            amount: task.amount,
+                            reserve: 0
+                        })
+                    }
+                    break;
+            }
+            if (task.steps.length) {
+                return;
             }
         }
     }
@@ -341,7 +468,7 @@ export class Carry {
                     storeAmount -= need;
                     this.takeTask(creep, task.id, need);
                 }
-                if (!taskList.length && this.storage) {
+                if (!taskList.length && this.storage && this.storage.store.getFreeCapacity(<ResourceConstant>type) > 0) {
                     let taskId = this.addCarryReq(this.storage, "input", <ResourceConstant>type, storeAmount)
                     this.takeTask(creep, taskId, storeAmount, false);
                 }
@@ -437,7 +564,30 @@ export class Carry {
 
         _.remove(this.memory.creepNameList, function (e) {
             return e == creepName;
+
         })
+
+
+    }
+
+    public addCarryReqNew(obj: ObjectWithPos,
+                          carryType: CarryTaskType,
+                          resourceType: ResourceConstant,
+                          amount: number): string {
+        let taskId = `${obj.id}#${carryType}#${resourceType}`;
+        if (!this.memory.logicTaskMap[taskId]) {
+            this.memory.logicTaskMap[taskId] = {
+                id: taskId,
+                objId: obj.id,
+                resourceType: resourceType,
+                carryType: carryType,
+                amount: amount,
+                steps: []
+            }
+            return taskId;
+        }
+        this.memory.taskMap[taskId].amount = amount;
+        return taskId;
     }
 
     public addCarryReq(obj: ObjectWithPos,
@@ -451,6 +601,9 @@ export class Carry {
         if (roomName != this.roomName) {
             console.log("not in one room" + roomName + "  " + this.roomName)
             return null;
+        }
+        if (this._isNewCarry) {
+            return this.addCarryReqNew(obj, carryType, resourceType, amount);
         }
         let taskId = `${obj.id}#${carryType}#${resourceType}`;
         if (!this.memory.taskMap[taskId]) {
@@ -576,5 +729,11 @@ export class Carry {
                 task.reserved = reserved
             }
         }
+    }
+
+    public getNearByEnergyPoint(creep: Creep): Structure {
+
+
+        return null
     }
 }

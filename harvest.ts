@@ -100,8 +100,13 @@ export class Harvest {
     }
 
     run() {
-
+        let nameSet = {}
         for (let creepName of this.memory.creepNameList) {
+            if (nameSet[creepName]) {
+                console.log(`creep name duplicate: ${this.roomName} ${creepName}`);
+                continue;
+            }
+            nameSet[creepName] = true
             if (!Game.creeps[creepName]) {
                 this.recoveryCreep(creepName);
                 continue;
