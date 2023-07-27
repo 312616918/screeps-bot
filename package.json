@@ -13,6 +13,6 @@
     "@types/screeps": "^3.2.3"
   },
   "devDependencies": {
-    "@types/node": "^16.7.10"
+    "@types/node": "^16.18.10"
   }
 }

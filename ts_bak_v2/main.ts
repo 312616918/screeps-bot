@@ -1,6 +1,6 @@
-import {RoomController} from "./RoomController";
-import {RoomName} from "./Config";
-
+import {RoomName} from "./globalConfig";
+import {RoomModule} from "./RoomModule";
+import {Spawn} from "./spawn";
 
 const profiler = require('screeps-profiler');
 
@@ -12,26 +12,18 @@ module.exports.loop = function () {
     });
 }
 
-
-function runRoom(roomName: RoomName) {
-    let roomMemory = Memory.roomData[roomName];
-    if(!roomMemory) {
-        // @ts-ignore
-        roomMemory = {};
-        Memory.roomData[roomName] = roomMemory;
-    }
-    let roomController = new RoomController(roomName, roomMemory);
-    roomController.run();
-}
-
 function main() {
     for (let r in RoomName) {
         try {
-            runRoom(RoomName[r]);
+            let roomName = <RoomName>r;
+            let roomModule = new RoomModule(roomName);
+            roomModule.run();
         } catch (e) {
             console.log(e.stack);
         }
     }
+    Spawn.spawnCreep();
+    Spawn.show();
 
     let bucket = Game.cpu.bucket;
     console.log("[CPU]:" + Game.cpu.getUsed().toFixed(2) + "  [BUCKET]:" + bucket)

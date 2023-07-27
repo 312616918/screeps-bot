@@ -6,6 +6,7 @@ import {Upgrade, UpgradeMemory} from "./upgrade";
 import {Build, BuildMemory} from "./build";
 import {Expand, ExpandMemory} from "./expand";
 import {Move, MoveMemory} from "./move";
+import {CarryMemoryV2, CarryV2} from "./carry_v2";
 // import {Move, MoveMemory} from "./move";
 
 export type RoomData = {
@@ -13,6 +14,8 @@ export type RoomData = {
     facility: FacilityMemory;
     //运输模块存储
     carry: CarryMemory;
+    //运输v2
+    carry_v2: CarryMemoryV2;
     //采集模块
     harvest: HarvestMemory;
     //升级模块
@@ -26,12 +29,13 @@ export type RoomData = {
 }
 
 // 运行时上下文
-type RoomContext = {
-    facMemory:Facility;
-    // 初始化
-    moveModule: Move;
-    carryModule: Carry;
-
+export type RoomContext = {
+    roomName: RoomName;
+    carry: Carry;
+    fac: FacilityMemory;
+    move: Move;
+    roomData: RoomData;
+    storage: StructureStorage;
 }
 
 
@@ -43,6 +47,7 @@ export class RoomModule {
     //sub module
     private facility: Facility;
     private carry: Carry;
+    private carry_v2: CarryV2;
     private harvest: Harvest;
     private upgrade: Upgrade;
     private build: Build;
@@ -65,6 +70,10 @@ export class RoomModule {
                 creepNameList: []
             },
             carry: {
+                creepNameList: [],
+                taskMap: {}
+            },
+            carry_v2: {
                 creepNameList: [],
                 taskMap: {}
             },
@@ -98,14 +107,22 @@ export class RoomModule {
         this.harvest = new Harvest(this.roomName, this.roomData.harvest, this.roomData.facility);
         this.upgrade = new Upgrade(this.roomName, this.roomData.upgrade, this.roomData.facility);
         this.build = new Build(this.roomName, this.roomData.build, this.roomData.facility);
-        // if (this.roomName == RoomName.W3N19) {
-        //     this.expand = new Expand(this.roomName, this.roomData.expand, this.roomData.facility);
+        this.move = new Move(this.roomName, this.roomData.move, this.roomData.facility)
+        this.carry.setMove(this.move);
+        // if (this.roomName == RoomName.W7N18) {
+        //     // this.expand = new Expand(this.roomName, this.roomData.expand, this.roomData.facility);
+        //     this.carry_v2 = new CarryV2({
+        //         carry: undefined,
+        //         fac: this.roomData.facility,
+        //         move: this.move,
+        //         roomData: this.roomData,
+        //         roomName: this.roomName,
+        //         storage: Game.getObjectById<StructureStorage>(this.roomData.facility.storageId)
+        //     })
         // }
 
 
         // if (this.roomName == RoomName.W7N18) {
-        this.move = new Move(this.roomName, this.roomData.move, this.roomData.facility)
-        this.carry.setMove(this.move);
         // }
     }
 
@@ -115,58 +132,62 @@ export class RoomModule {
         this.facility.refresh()
         this.facility.initCreepPos()
 
-        let room = Game.rooms[this.roomName];
-        let drops = room.find(FIND_DROPPED_RESOURCES);
-        if (drops.length != 0) {
-            for (let drop of drops) {
-                this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
+        if (this.carry_v2) {
+            this.arrangeCarry();
+        } else {
+            let room = Game.rooms[this.roomName];
+            let drops = room.find(FIND_DROPPED_RESOURCES);
+            if (drops.length != 0) {
+                for (let drop of drops) {
+                    this.carry.addCarryReq(drop, "pickup", "energy", drop.amount);
+                }
             }
-        }
 
-        let ruins = room.find(FIND_RUINS);
-        if (ruins.length != 0) {
-            for (let r of ruins) {
-                for (let type in r.store) {
-                    let sAmount = r.store.getUsedCapacity(<ResourceConstant>type);
-                    if (sAmount) {
-                        this.carry.addCarryReq(r, "output", <ResourceConstant>type, sAmount);
+            let ruins = room.find(FIND_RUINS);
+            if (ruins.length != 0) {
+                for (let r of ruins) {
+                    for (let type in r.store) {
+                        let sAmount = r.store.getUsedCapacity(<ResourceConstant>type);
+                        if (sAmount) {
+                            this.carry.addCarryReq(r, "output", <ResourceConstant>type, sAmount);
+                        }
                     }
                 }
             }
-        }
 
 
-        for (let spawnName of this.roomData.facility.spawnNames) {
-            let spawn = Game.spawns[spawnName];
-            if (spawn.store.getFreeCapacity("energy") != 0) {
-                this.carry.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
-            }
-        }
-
-        let extensionIds = this.roomData.facility.extensionIds;
-        if (extensionIds) {
-            for (let id of extensionIds) {
-                let extension = Game.getObjectById<StructureExtension>(id);
-                let freeCapacity = extension.store.getFreeCapacity("energy");
-                if (freeCapacity > 0) {
-                    this.carry.addCarryReq(extension, "input", "energy", freeCapacity);
+            for (let spawnName of this.roomData.facility.spawnNames) {
+                let spawn = Game.spawns[spawnName];
+                if (spawn.store.getFreeCapacity("energy") != 0) {
+                    this.carry.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
                 }
             }
-        }
 
-        for (let sourceId in this.roomData.facility.sources) {
-            let config = this.roomData.facility.sources[sourceId];
-            let container = Game.getObjectById<StructureContainer>(config.containerId);
-            if (!container) {
-                continue;
+            let extensionIds = this.roomData.facility.extensionIds;
+            if (extensionIds) {
+                for (let id of extensionIds) {
+                    let extension = Game.getObjectById<StructureExtension>(id);
+                    let freeCapacity = extension.store.getFreeCapacity("energy");
+                    if (freeCapacity > 0) {
+                        this.carry.addCarryReq(extension, "input", "energy", freeCapacity);
+                    }
+                }
             }
-            let amount = container.store.getUsedCapacity("energy");
-            if (amount < 200) {
-                continue;
-            }
-            this.carry.addCarryReq(container, "output", "energy", amount);
-        }
 
+            for (let sourceId in this.roomData.facility.sources) {
+                let config = this.roomData.facility.sources[sourceId];
+                let container = Game.getObjectById<StructureContainer>(config.containerId);
+                if (!container) {
+                    continue;
+                }
+                let amount = container.store.getUsedCapacity("energy");
+                if (amount < 200) {
+                    continue;
+                }
+                this.carry.addCarryReq(container, "output", "energy", amount);
+            }
+
+        }
 
         //1. facility
         if (Game.time % 10 == 0) {
@@ -177,8 +198,15 @@ export class RoomModule {
 
         //2. normal module
         this.harvest.run()
-        this.carry.run()
-        this.carry.visual()
+        if (this.carry_v2) {
+            this.carry_v2.run()
+            this.carry_v2.visual()
+            console.log(this.roomName + " run v2")
+        } else {
+            this.carry.run()
+            this.carry.visual()
+        }
+
         this.upgrade.run()
         this.build.run()
         if (this.expand) {
@@ -234,5 +262,39 @@ export class RoomModule {
         //         this.roomData.upgrade.creepNameList.push(creepName);
         //     }
         // }
+    }
+
+    private arrangeCarry(): void {
+
+        for (let spawnName of this.roomData.facility.spawnNames) {
+            let spawn = Game.spawns[spawnName];
+            if (spawn.store.getFreeCapacity("energy") != 0) {
+                this.carry_v2.addCarryReq(spawn, "input", "energy", spawn.store.getFreeCapacity("energy"));
+            }
+        }
+
+        let extensionIds = this.roomData.facility.extensionIds;
+        if (extensionIds) {
+            for (let id of extensionIds) {
+                let extension = Game.getObjectById<StructureExtension>(id);
+                let freeCapacity = extension.store.getFreeCapacity("energy");
+                if (freeCapacity > 0) {
+                    this.carry_v2.addCarryReq(extension, "input", "energy", freeCapacity);
+                }
+            }
+        }
+
+        for (let sourceId in this.roomData.facility.sources) {
+            let config = this.roomData.facility.sources[sourceId];
+            let container = Game.getObjectById<StructureContainer>(config.containerId);
+            if (!container) {
+                continue;
+            }
+            let amount = container.store.getUsedCapacity("energy");
+            if (amount < 200) {
+                continue;
+            }
+            this.carry_v2.addCarryReq(container, "output", "energy", amount);
+        }
     }
 }

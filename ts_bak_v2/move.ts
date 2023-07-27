@@ -1,5 +1,5 @@
-import {RoomFacility} from "./RoomFacility";
-import {RoomName} from "./Config";
+import {RoomName} from "./globalConfig";
+import {FacilityMemory} from "./facility";
 
 export type MoveMemory = {
     pathCache: PathCache;
@@ -37,12 +37,12 @@ function getReverseDir(dir: DirectionConstant): DirectionConstant {
 export class Move {
     protected roomName: RoomName;
     protected memory: MoveMemory;
-    protected fac: RoomFacility;
+    protected fac: FacilityMemory;
 
     protected moveRecord: MoveRecord;
 
 
-    public constructor(roomName: RoomName, m: MoveMemory, f: RoomFacility) {
+    public constructor(roomName: RoomName, m: MoveMemory, f: FacilityMemory) {
         this.roomName = roomName;
         this.memory = m;
         this.fac = f;
@@ -87,14 +87,16 @@ export class Move {
         //find/init cache
         if (!pathCache) {
             // console.log("find path")
-            let roadPos = this.fac.getRoadPos();
-            let creepPos = this.fac.getCreepPos();
-            console.log("roadPos" + JSON.stringify(roadPos))
-            console.log("creepPos" + JSON.stringify(creepPos))
+            let roadPos = this.fac.roadPos;
             pathCache = this.memory.pathCache[creepMemory.pathId] = {
                 paths: room.findPath(creep.pos, toPos, {
                     range: range,
                     costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
+                        // if (roomName == "W7N24") {
+                        //     for (let x = 0; x < 50; x++) {
+                        //         costMatrix.set(x, 0, 255)
+                        //     }
+                        // }
                         try {
                             for (let i = 0; i < 50; i++) {
                                 costMatrix.set(i, 0, 255)
@@ -106,19 +108,6 @@ export class Move {
                             for (let posKey in roadPos) {
                                 let pos = posKey.split("-")
                                 costMatrix.set(Number(pos[0]), Number(pos[1]), 1)
-                            }
-                            for (let posKey in creepPos) {
-                                if (roadPos[posKey]) {
-                                    continue;
-                                }
-                                let cName = creepPos[posKey];
-                                let c = Game.creeps[cName];
-                                if (!c || c.memory.module == "carry") {
-                                    continue
-                                }
-                                console.log("move conflict" + cName + " " + posKey)
-                                let pos = posKey.split("-")
-                                costMatrix.set(Number(pos[0]), Number(pos[1]), 255)
                             }
                         } catch (e) {
                             console.log(e.stack);
@@ -139,30 +128,20 @@ export class Move {
                 || (nextStep.x == creep.pos.x && nextStep.y == creep.pos.y)) {
                 creepMemory.index++;
                 nextStep = pathCache.paths[creepMemory.index];
-                creepMemory.blockTick = 0;
             } else {
-                creepMemory.blockTick++;
-                if (creepMemory.blockTick > 5) {
-                    console.log("move block" + creep.name + JSON.stringify(creepMemory))
-                    creep.memory.move = null;
-                    this.memory.pathCache[creepMemory.pathId] = null;
-                    return;
-                }
                 //last tick failed
                 let posKey = `${nextStep.x}-${nextStep.y}`
-                let cName = this.fac.getCreepPos()[posKey];
-                console.log("move look for " + cName + " " + posKey)
-                if (cName && Game.creeps[cName]) {
-                    let cModule = Game.creeps[cName].memory.module;
-                    if (cModule == "carry" || cModule == "build" || this.fac.getRoadPos()[posKey]) {
-                        console.log("ask move " + cName)
-                        //mark other move
-                        creepMemory.conflictName = cName;
-                        if (!this.moveRecord[cName]) {
-                            this.moveRecord[cName] = {}
-                        }
-                        this.moveRecord[cName].passiveDir = getReverseDir(nextStep.direction);
+                let cName = this.fac.creepPos[posKey];
+                // console.log("move look for " + cName + " " + posKey)
+                if (cName && this.fac.roadPos[posKey]) {
+                    // console.log("ask move " + cName)
+                    let c = Game.creeps[cName];
+                    //mark other move
+                    creepMemory.conflictName = cName;
+                    if (!this.moveRecord[cName]) {
+                        this.moveRecord[cName] = {}
                     }
+                    this.moveRecord[cName].passiveDir = getReverseDir(nextStep.direction);
                 }
             }
             if (creep.pos.getRangeTo(nextStep.x, nextStep.y) > 1) {
@@ -187,7 +166,6 @@ export class Move {
     }
 
     public moveAll(): void {
-        console.log("move record" + JSON.stringify(this.moveRecord))
         for (let creepName in this.moveRecord) {
             let creep = Game.creeps[creepName];
             if (!creep) {

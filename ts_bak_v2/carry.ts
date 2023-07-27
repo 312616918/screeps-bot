@@ -16,11 +16,6 @@ export type CarryMemory = {
     taskMap: {
         [taskId: string]: CarryTask;
     }
-
-    logicTaskMap: {
-        [taskId: string]: LogicCarryTask;
-    }
-
 }
 
 type CarryTask = {
@@ -79,8 +74,6 @@ export class Carry {
     protected memory: CarryMemory;
     protected fac: FacilityMemory;
     private move: Move;
-    private _isNewCarry: boolean = false;
-
     public static entities: {
         [roomName in RoomName]?: Carry
     } = {};
@@ -96,10 +89,6 @@ export class Carry {
 
     public setMove(value: Move) {
         this.move = value;
-    }
-
-    set isNewCarry(value: boolean) {
-        this._isNewCarry = value;
     }
 
     protected spawnCreeps(): void {
@@ -323,50 +312,6 @@ export class Carry {
         }
     }
 
-    protected runNew(): void {
-        this.memory.creepNameList.forEach(name => {
-            let creep = Game.creeps[name];
-            let creepMemory = creep.memory.carry;
-            if (!creepMemory.logicTaskId) {
-                return;
-            }
-            let task = this.memory.logicTaskMap[creepMemory.logicTaskId];
-            let step = task.steps[creepMemory.stepIdx];
-            switch (step.type) {
-                case "carry":
-                    switch (creepMemory.status) {
-                        case "first":
-                            let fromObj = Game.getObjectById<ObjectWithPos>(step.fromId);
-                            let res = step.fromType == "withdraw"
-                                  ? creep.withdraw(<Structure | Tombstone | Ruin>fromObj, task.resourceType)
-                                : creep.pickup(<Resource>fromObj);
-                            if (res == OK) {
-                                creepMemory.status = "second";
-                            } else {
-                                this.move.reserveMove(creep, fromObj.pos, 1)
-                            }
-                            break;
-                        case "second":
-                            let toObj = Game.getObjectById<AnyCreep | Structure>(step.toId);
-                            if (creep.transfer(toObj, task.resourceType) == OK) {
-                                creepMemory.status = null;
-                                creepMemory.stepIdx = null;
-                                creepMemory.logicTaskId = null;
-                                step.reserve -= creepMemory.reserve;
-                                step.amount -= creepMemory.reserve;
-                            } else {
-                                this.move.reserveMove(creep, toObj.pos, 1)
-                            }
-                            break;
-
-
-                    }
-
-            }
-        });
-
-    }
-
     protected arrangeCreep() {
 
     }
@@ -570,25 +515,6 @@ export class Carry {
 
     }
 
-    public addCarryReqNew(obj: ObjectWithPos,
-                          carryType: CarryTaskType,
-                          resourceType: ResourceConstant,
-                          amount: number): string {
-        let taskId = `${obj.id}#${carryType}#${resourceType}`;
-        if (!this.memory.logicTaskMap[taskId]) {
-            this.memory.logicTaskMap[taskId] = {
-                id: taskId,
-                objId: obj.id,
-                resourceType: resourceType,
-                carryType: carryType,
-                amount: amount,
-                steps: []
-            }
-            return taskId;
-        }
-        this.memory.taskMap[taskId].amount = amount;
-        return taskId;
-    }
 
     public addCarryReq(obj: ObjectWithPos,
                        carryType: CarryTaskType,
@@ -601,9 +527,6 @@ export class Carry {
         if (roomName != this.roomName) {
             console.log("not in one room" + roomName + "  " + this.roomName)
             return null;
-        }
-        if (this._isNewCarry) {
-            return this.addCarryReqNew(obj, carryType, resourceType, amount);
         }
         let taskId = `${obj.id}#${carryType}#${resourceType}`;
         if (!this.memory.taskMap[taskId]) {

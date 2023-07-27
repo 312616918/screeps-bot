@@ -6,7 +6,7 @@
 export enum RoomName {
     W7N18 = "W7N18",
     W8N21 = "W8N21",
-    W4N22 = "W4N22",
+    // W4N22 = "W4N22",
     W8N24 = "W8N24",
     W7N24 = "W7N24",
 
@@ -172,49 +172,49 @@ export const globalConfig: Config = {
             }
         }
     },
-    W4N22: {
-        carry: {
-            amount: 2,
-            defaultParts: {
-                carry: 4,
-                move: 2
-            }
-        },
-        harvest: {
-            defaultParts: {
-                work: 5,
-                carry: 1,
-                move: 3
-            },
-            creepConfigs: [{
-                pos: new RoomPosition(46, 38, RoomName.W4N22)
-            }, {
-                pos: new RoomPosition(24, 44, RoomName.W4N22)
-            }]
-        },
-        upgrade: {
-            defaultParts: {
-                work: 5,
-                carry: 1,
-                move: 1
-            },
-            creepConfigs: [{
-                pos: new RoomPosition(38, 41, RoomName.W4N22)
-            }, {
-                pos: new RoomPosition(39, 40, RoomName.W4N22)
-            }, {
-                pos: new RoomPosition(39, 39, RoomName.W4N22)
-            }]
-        },
-        build: {
-            amount: 1,
-            defaultParts: {
-                work: 1,
-                carry: 1,
-                move: 1
-            }
-        }
-    },
+    // W4N22: {
+    //     carry: {
+    //         amount: 2,
+    //         defaultParts: {
+    //             carry: 4,
+    //             move: 2
+    //         }
+    //     },
+    //     harvest: {
+    //         defaultParts: {
+    //             work: 5,
+    //             carry: 1,
+    //             move: 3
+    //         },
+    //         creepConfigs: [{
+    //             pos: new RoomPosition(46, 38, RoomName.W4N22)
+    //         }, {
+    //             pos: new RoomPosition(24, 44, RoomName.W4N22)
+    //         }]
+    //     },
+    //     upgrade: {
+    //         defaultParts: {
+    //             work: 5,
+    //             carry: 1,
+    //             move: 1
+    //         },
+    //         creepConfigs: [{
+    //             pos: new RoomPosition(38, 41, RoomName.W4N22)
+    //         }, {
+    //             pos: new RoomPosition(39, 40, RoomName.W4N22)
+    //         }, {
+    //             pos: new RoomPosition(39, 39, RoomName.W4N22)
+    //         }]
+    //     },
+    //     build: {
+    //         amount: 1,
+    //         defaultParts: {
+    //             work: 1,
+    //             carry: 1,
+    //             move: 1
+    //         }
+    //     }
+    // },
     W8N24: {
         carry: {
             amount: 3,
