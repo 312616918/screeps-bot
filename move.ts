@@ -89,8 +89,6 @@ export class Move {
             // console.log("find path")
             let roadPos = this.fac.getRoadPos();
             let creepPos = this.fac.getCreepPos();
-            console.log("roadPos" + JSON.stringify(roadPos))
-            console.log("creepPos" + JSON.stringify(creepPos))
             pathCache = this.memory.pathCache[creepMemory.pathId] = {
                 paths: room.findPath(creep.pos, toPos, {
                     range: range,
@@ -187,7 +185,6 @@ export class Move {
     }
 
     public moveAll(): void {
-        console.log("move record" + JSON.stringify(this.moveRecord))
         for (let creepName in this.moveRecord) {
             let creep = Game.creeps[creepName];
             if (!creep) {

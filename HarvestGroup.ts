@@ -51,14 +51,9 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         }
         let pos = creep.memory.harvest.workPosition;
         if (pos) {
-            // let workPos = pos;
             let workPos = new RoomPosition(pos.x, pos.y, pos.roomName);
             if (creep.pos.getRangeTo(workPos)) {
-                creep.moveTo(workPos, {
-                    visualizePathStyle: {
-                        stroke: '#ffffff'
-                    }
-                });
+                this.move.reserveMove(creep, workPos, 0);
                 return;
             }
             let towerList = this.roomFacility.getTowerList();

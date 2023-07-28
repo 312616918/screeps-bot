@@ -9,11 +9,18 @@ type ExpandGroupPos = {
     direction: DirectionConstant;
 }
 
+type MoveRecord = {
+    [creepName: string]: {
+        activeDir?: DirectionConstant;
+        passiveDir?: DirectionConstant;
+    }
+}
 
 export type ExpandGroupMemory = {
     creepNameList: string[];
     state: "spawn" | "meeting" | "run" | "recycle";
     nameShape: string[][];
+    moveRecord: MoveRecord;
 }
 
 export type ExpandGroupCreepMemory = {
@@ -21,6 +28,13 @@ export type ExpandGroupCreepMemory = {
     shapeX: number;
     shapeY: number;
     targetPos?: RoomPosition;
+    parentName?: string;
+    expandMove?: {
+        toPos: RoomPosition;
+        path: PathFinderPath;
+        index: number;
+        blockTick: number;
+    }
 }
 
 
@@ -80,6 +94,31 @@ let directionBiasMap = {
         x: -1,
         y: -1
     }
+}
+
+function getReverseDir(dir: DirectionConstant): DirectionConstant {
+    return <DirectionConstant>((dir + 3) % 8 + 1);
+}
+
+function getDirRoom(roomName: string, x: number, y: number): string {
+    if (x == 0 && y == 0) {
+        return roomName;
+    }
+    //w23s22, e2s22, e2n2, w23n2
+    let mts = roomName.match(/([EW])(\d+)([NS])(\d+)/);
+    let xDir = mts[1];
+    let xNum = Number(mts[2]);
+    let yDir = mts[3];
+    let yNum = Number(mts[4]);
+    let standX = xDir == "W" ? -xNum : xNum + 1;
+    let standY = yDir == "N" ? -yNum : yNum + 1;
+    let newX = standX + x;
+    let newY = standY + y;
+    let newXDir = newX <= 0 ? "W" : "E";
+    let newYDir = newY <= 0 ? "N" : "S";
+    let newXNum = newX <= 0 ? -newX : newX - 1;
+    let newYNum = newY <= 0 ? -newY : newY - 1;
+    return `${newXDir}${newXNum}${newYDir}${newYNum}`;
 }
 
 export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
@@ -202,7 +241,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         }).sort((a, b) => {
             return a.idx - b.idx
         });
-        this.memory.creepNameList = sortObjList.map(obj => obj.name);
+        this.memory.creepNameList = sortObjList.map(obj => obj.name).reverse();
         this.memory.state = "meeting";
     }
 
@@ -217,12 +256,127 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
 
     protected abstract beforeRecycle(creepMemory: CreepMemory): void;
 
-    protected reserveMove(creep: Creep, toPos: RoomPosition, range: number): void {
+    private PathFinderPath(fromPos:RoomPosition, toPos:RoomPosition, range:number){
+        return PathFinder.search(fromPos, {
+            pos: toPos,
+            range: range
+        },
+        {
+            roomCallback(roomName: string): boolean | CostMatrix {
+                try {
+                    let costMatrix = new PathFinder.CostMatrix();
+                    let roomFacility = RoomFacility.roomFacilityMap[roomName];
+                    if (roomFacility) {
+                        for (let posKey in roomFacility.getCreepPos()) {
+                            let pos = posKey.split("-");
+                            costMatrix.set(Number(pos[0]), Number(pos[1]), 1)
+                        }
+                    }
+                    return costMatrix;
+                } catch (e) {
+                    console.log(e.stack);
+                }
+            }
+        })
+    }
 
+    protected reverseMove(creep: Creep): void {
+        let toPos = creep.memory.expand[this.name].targetPos;
+        let creepMoveMemory = creep.memory.expand[this.name].expandMove;
+        if (creepMoveMemory) {
+            //target has changed
+            let targetPos = creepMoveMemory.toPos;
+            if (targetPos.x != toPos.x || targetPos.y != toPos.y) {
+                creep.memory.expand[this.name].expandMove = null;
+                creepMoveMemory = null;
+            }
+        }
+
+        if (!creepMoveMemory) {
+            creepMoveMemory = creep.memory.expand[this.name].expandMove = {
+                toPos: toPos,
+                path: this.PathFinderPath(creep.pos, toPos, 0),
+                index: -1,
+                blockTick: 0
+            }
+            // 不可达，移动到父级位置
+            if (creepMoveMemory.path.incomplete) {
+                let parentName = creep.memory.expand[this.name].parentName;
+                if (parentName) {
+                    let parentCreep = Game.creeps[parentName];
+                    if (parentCreep) {
+                        let parentPos = parentCreep.pos;
+                        creepMoveMemory.path = this.PathFinderPath(creep.pos, parentPos, 0);
+                    }
+                }
+            }
+        }
+        try {
+            let path = creepMoveMemory.path.path;
+            let nextPos = path[creepMoveMemory.index];
+            if (creepMoveMemory.index == -1 || creep.pos.getRangeTo(nextPos.x, nextPos.y) == 0) {
+                creepMoveMemory.index++;
+                nextPos = path[creepMoveMemory.index];
+                creepMoveMemory.blockTick = 0;
+            } else {
+                //last tick failed
+                creepMoveMemory.blockTick++;
+                if (creepMoveMemory.blockTick > 5) {
+                    console.log("move block" + creep.name + JSON.stringify(creepMoveMemory))
+                    creep.memory.expand[this.name].expandMove = null;
+                    return;
+                }
+                let nextDir = creep.pos.getDirectionTo(nextPos.x, nextPos.y);
+                let roomFacility = RoomFacility.roomFacilityMap[creep.room.name];
+                if (roomFacility) {
+                    let posKey = `${nextPos.x}_${nextPos.y}`
+                    let cName = roomFacility.getCreepPos()[posKey];
+                    if (cName && Game.creeps[cName]) {
+                        if (!this.memory.moveRecord[cName]) {
+                            this.memory.moveRecord[cName] = {}
+                        }
+                        this.memory.moveRecord[cName].passiveDir = getReverseDir(nextDir);
+                    }
+
+                }
+            }
+            if (creep.pos.getRangeTo(nextPos.x, nextPos.y) > 1) {
+                console.log("error nextStep more than 1 range </br>" + JSON.stringify(creepMoveMemory) + "</br>"
+                    + JSON.stringify(nextPos) + "</<br>" + creep.name);
+                creep.memory.expand[this.name].expandMove = null;
+                return;
+            }
+            let nextDir = creep.pos.getDirectionTo(nextPos.x, nextPos.y);
+            if (!this.memory.moveRecord[creep.name]) {
+                this.memory.moveRecord[creep.name] = {}
+            }
+            this.memory.moveRecord[creep.name].activeDir = nextDir;
+        } catch (e) {
+            console.log(e.stack);
+        }
     }
 
     protected moveAll(): void {
-
+        let moveRecord = this.memory.moveRecord;
+        for (let creepName in moveRecord) {
+            let creep = Game.creeps[creepName];
+            if (!creep) {
+                continue;
+            }
+            let record = moveRecord[creepName];
+            if (record.activeDir) {
+                creep.move(record.activeDir);
+            } else if (record.passiveDir) {
+                creep.move(record.passiveDir);
+            }
+            let creepMoveMemory = creep.memory.expand[this.name].expandMove;
+            if (!creepMoveMemory || !creepMoveMemory.path) {
+                continue;
+            }
+            let path = creepMoveMemory.path.path;
+            new RoomVisual(creep.room.name).poly(path.map(p => [p.x, p.y]))
+        }
+        this.memory.moveRecord = {};
     }
 
     private setCreepTargetPos(headPos: RoomPosition, headDir: DirectionConstant): void {
@@ -231,6 +385,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         let queue = [];
         let setPos = {};
         queue.push({
+            parentName: null,
             name: headName,
             dir: null,
             pos: headCreep.pos
@@ -253,7 +408,27 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                 let targetDir = (headDir - TOP + curDir + 8) % 8 + 1;
                 let targetX = curPos.x + directionBiasMap[targetDir].x;
                 let targetY = curPos.y + directionBiasMap[targetDir].y;
-                curMemory.targetPos = new RoomPosition(targetX, targetY, curPos.roomName);
+                let xRoomBias = 0;
+                let yRoomBias = 0;
+                if (targetX < 0) {
+                    xRoomBias = -1;
+                    targetX = 49;
+                }
+                if (targetX > 49) {
+                    xRoomBias = 1;
+                    targetX = 0;
+                }
+                if (targetY < 0) {
+                    yRoomBias = -1;
+                    targetY = 49;
+                }
+                if (targetY > 49) {
+                    yRoomBias = 1;
+                    targetY = 0;
+                }
+                let targetRoomName = getDirRoom(curPos.roomName, xRoomBias, yRoomBias);
+                curMemory.targetPos = new RoomPosition(targetX, targetY, targetRoomName);
+                curMemory.parentName = curNode.parentName;
             }
             for (let dir in directionBiasMap) {
                 let shapeX = curMemory.shapeX + directionBiasMap[dir].x;
@@ -263,53 +438,12 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                     continue;
                 }
                 queue.push({
+                    parentName: curNode.name,
                     name: dirCreepName,
                     dir: Number(dir),
                     pos: curMemory.targetPos
                 })
             }
         }
-    }
-
-    protected groupMoveTo(pos: RoomPosition, range: number): void {
-        let headPos = this.expandSpawnConfig.headPos;
-        let headCreepName = this.memory.nameShape[headPos.x][headPos.y];
-        let headCreep = Game.creeps[headCreepName];
-        let pathCache = {
-            paths: PathFinder.search(headCreep.pos, {
-                    pos: pos,
-                    range: range
-                },
-                // {
-                //     roomCallback(roomName: string): boolean | CostMatrix {
-                //         try {
-                //             let costMatrix = new PathFinder.CostMatrix();
-                //             for (let posKey in roadPos) {
-                //                 let pos = posKey.split("-")
-                //                 costMatrix.set(Number(pos[0]), Number(pos[1]), 1)
-                //             }
-                //             for (let posKey in creepPos) {
-                //                 if (roadPos[posKey]) {
-                //                     continue;
-                //                 }
-                //                 let cName = creepPos[posKey];
-                //                 let c = Game.creeps[cName];
-                //                 if (!c || c.memory.module == "carry") {
-                //                     continue
-                //                 }
-                //                 console.log("move conflict" + cName + " " + posKey)
-                //                 let pos = posKey.split("-")
-                //                 costMatrix.set(Number(pos[0]), Number(pos[1]), 255)
-                //             }
-                //         } catch (e) {
-                //             console.log(e.stack);
-                //         }
-                //     }
-                // }
-                ),
-            createTime: Game.time,
-            refreshTime: 0
-        }
-
     }
 }

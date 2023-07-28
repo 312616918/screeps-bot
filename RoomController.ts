@@ -172,7 +172,8 @@ export class RoomController {
         if (!this.roomMemory.carry) {
             this.roomMemory.carry = {
                 creepNameList: [],
-                taskMap: {}
+                taskMap: {},
+                storageTaskMap: {}
             }
         }
         if (!this.roomMemory.build) {
