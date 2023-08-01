@@ -4,7 +4,7 @@ import {Facility, FacilityMemory} from "./facility";
 import {Harvest, HarvestMemory} from "./harvest";
 import {Upgrade, UpgradeMemory} from "./upgrade";
 import {Build, BuildMemory} from "./build";
-import {Expand, ExpandMemory} from "./expand";
+import {Expand, ExpandGroupMemory} from "./expand";
 import {Move, MoveMemory} from "./move";
 import {CarryMemoryV2, CarryV2} from "./carry_v2";
 // import {Move, MoveMemory} from "./move";
@@ -25,7 +25,7 @@ export type RoomData = {
     //移动控制模块
     move: MoveMemory;
     //扩张模块
-    expand: ExpandMemory;
+    expand: ExpandGroupMemory;
 }
 
 // 运行时上下文

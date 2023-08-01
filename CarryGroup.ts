@@ -1,5 +1,5 @@
 import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
-import {RoomName} from "./Config";
+import {roomConfigMap, RoomName} from "./Config";
 
 
 /**
@@ -52,16 +52,27 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
             this.memory.taskMap = {}
             this.memory.storageTaskMap = {}
         }
+        let config = roomConfigMap[this.roomName].carry;
+        let partNum = config.partNum;
+        if(this.roomFacility.isInLowEnergy()){
+            partNum = Math.min(partNum, 1);
+        }
+        let body: BodyPartConstant[] = [];
+        for (let i = 0; i < partNum; i++) {
+            body.push(CARRY);
+            body.push(CARRY);
+            body.push(MOVE);
+        }
         return [
             {
-                body: [CARRY, CARRY, MOVE],
+                body: body,
                 memory: {
                     module: this.moduleName,
                     carry: {
                         taskRecordList: []
                     }
                 },
-                num: 4
+                num: config.carryNum
             }
         ];
     }
@@ -100,7 +111,6 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
         if (task.carryType == "input") {
             this.move.reserveMove(creep, target.pos, 1);
             let res = creep.transfer(<AnyCreep | Structure>target, task.resourceType, taskRecord.reserved)
-            console.log("input:" + res)
             if (res == ERR_NOT_ENOUGH_RESOURCES || res == ERR_FULL) {
                 res = creep.transfer(<AnyCreep | Structure>target, task.resourceType)
             }
@@ -238,7 +248,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
 
 
     protected arrange(creep: Creep): void {
-        console.log("arrange", creep.name)
+        // console.log("arrange", creep.name)
 
         let taskArgList: TaskArg[] = [];
         //1. has resource

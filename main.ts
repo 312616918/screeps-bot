@@ -1,5 +1,6 @@
 import {RoomController} from "./RoomController";
 import {RoomName} from "./Config";
+import {ExpandController} from "./ExpandController";
 
 
 const profiler = require('screeps-profiler');
@@ -15,7 +16,7 @@ module.exports.loop = function () {
 
 function runRoom(roomName: RoomName) {
     let roomMemory = Memory.roomData[roomName];
-    if(!roomMemory) {
+    if (!roomMemory) {
         // @ts-ignore
         roomMemory = {};
         Memory.roomData[roomName] = roomMemory;
@@ -25,12 +26,24 @@ function runRoom(roomName: RoomName) {
 }
 
 function main() {
+    console.log("tick:" + Game.time);
+
     for (let r in RoomName) {
         try {
             runRoom(RoomName[r]);
         } catch (e) {
             console.log(e.stack);
         }
+    }
+
+    try {
+        if (!Memory.expand) {
+            Memory.expand = {}
+        }
+        let expandController = new ExpandController(Memory.expand);
+        expandController.run();
+    } catch (e) {
+        console.log(e.stack);
     }
 
     let bucket = Game.cpu.bucket;

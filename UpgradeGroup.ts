@@ -1,4 +1,5 @@
 import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {roomConfigMap} from "./Config";
 
 export type UpgradeMemory = {} & GroupMemory;
 
@@ -12,38 +13,33 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     protected moduleName: string = "upgrade";
 
     protected getSpawnConfigList(): SpawnConfig[] {
-        return [
-            {
-                body: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],
+        let config = roomConfigMap[this.roomName].upgrade;
+        let partNum = config.partNum;
+        if (this.roomFacility.isInLowEnergy()) {
+            partNum = Math.min(partNum, 2);
+        }
+        let body: BodyPartConstant[] = [];
+        for (let i = 0; i < partNum; i++) {
+            body.push(WORK);
+        }
+        body.push(CARRY);
+        body.push(MOVE);
+
+        let spawnConfigList: SpawnConfig[] = [];
+        config.workPosList.forEach(pos => {
+            let workPos = new RoomPosition(pos.x, pos.y, this.roomName);
+            spawnConfigList.push({
+                body: body,
                 memory: {
                     module: this.moduleName,
                     upgrade: {
-                        workPosition: new RoomPosition(14, 12, "W2N18")
+                        workPosition: workPos
                     }
                 },
                 num: 1
-            },
-            {
-                body: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],
-                memory: {
-                    module: this.moduleName,
-                    upgrade: {
-                        workPosition: new RoomPosition(13, 12, "W2N18")
-                    }
-                },
-                num: 1
-            },
-            {
-                body: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],
-                memory: {
-                    module: this.moduleName,
-                    upgrade: {
-                        workPosition: new RoomPosition(11, 12, "W2N18")
-                    }
-                },
-                num: 1
-            }
-        ];
+            });
+        });
+        return spawnConfigList;
     }
 
     protected runEachCreep(creep: Creep) {

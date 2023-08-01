@@ -2,9 +2,9 @@ import {RoomName} from "./Config";
 
 export type EventItem = {
     type: "needCarry";
-    subType: "input"| "output" | "pickup";
+    subType: "input" | "output" | "pickup";
     objId: string;
-    objType: "spawn"|"builder"|"source"|"drop"|"upgrader"| "extension";
+    objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension";
     resourceType: ResourceConstant;
     amount: number;
 }
@@ -25,11 +25,12 @@ export type RoomFacilityMemory = {
     // sourceNameList: string[];
 
     eventList: EventItem[];
+    lastLowEnergyTime: number;
 }
 
 
 export class RoomFacility {
-    public static roomFacilityMap:{[name:string]:RoomFacility} = {};
+    public static roomFacilityMap: { [name: string]: RoomFacility } = {};
 
     public roomName: RoomName;
     private room: Room;
@@ -58,9 +59,29 @@ export class RoomFacility {
         this.memory = memory;
         this.room = Game.rooms[roomName];
         RoomFacility.roomFacilityMap[roomName] = this;
+        if (this.room) {
+            let availableEnergy = this.room.energyAvailable;
+            if (availableEnergy > 300) {
+                this.memory.lastLowEnergyTime = 0;
+            } else if (!this.memory.lastLowEnergyTime) {
+                this.memory.lastLowEnergyTime = Game.time;
+                console.log(`room ${roomName} start low energy`)
+            }
+        }
+    }
+
+    public roomIsMine(): boolean {
+        return this.room && this.room.controller && this.room.controller.my;
+    }
+
+    public isInLowEnergy(): boolean {
+        return this.memory.lastLowEnergyTime && Game.time - this.memory.lastLowEnergyTime > 400;
     }
 
     public getSpawnList(): StructureSpawn[] {
+        if (!this.room) {
+            return [];
+        }
         if (!this.spawnList) {
             this.spawnList = [];
             this.room.find(FIND_MY_SPAWNS).forEach(spawn => {
@@ -129,14 +150,14 @@ export class RoomFacility {
     }
 
     public getConstructionSiteList(): ConstructionSite[] {
-        if(!this.constructionSiteList){
+        if (!this.constructionSiteList) {
             this.constructionSiteList = this.room.find(FIND_MY_CONSTRUCTION_SITES);
         }
         return this.constructionSiteList;
     }
 
     public getTowerList(): StructureTower[] {
-        if(!this.towerList){
+        if (!this.towerList) {
             this.towerList = this.room.find<StructureTower>(FIND_MY_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_TOWER;
@@ -147,7 +168,7 @@ export class RoomFacility {
     }
 
     public getSourceContainerList(): StructureContainer[] {
-        if(!this.sourceContainerList){
+        if (!this.sourceContainerList) {
             this.sourceContainerList = this.room.find<StructureContainer>(FIND_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_CONTAINER && s.pos.findInRange(FIND_SOURCES, 1).length > 0;
@@ -158,7 +179,7 @@ export class RoomFacility {
     }
 
     public getExtensionList(): StructureExtension[] {
-        if(!this.extensionList){
+        if (!this.extensionList) {
             this.extensionList = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_EXTENSION;
@@ -169,9 +190,27 @@ export class RoomFacility {
     }
 
     public getStorage(): StructureStorage {
-        if(!this.storage){
+        if (!this.storage) {
             this.storage = this.room.storage;
         }
         return this.storage;
+    }
+
+    public visualize() {
+        this.getSpawnList().forEach(spawn => {
+            if (!spawn.spawning) {
+                return;
+            }
+            if (spawn.spawning.needTime - spawn.spawning.remainingTime > 3) {
+                return;
+            }
+            spawn.room.visual.text(
+                '🛠️' + spawn.spawning.name,
+                spawn.pos.x + 1,
+                spawn.pos.y, {
+                    align: 'left',
+                    opacity: 0.8
+                });
+        })
     }
 }

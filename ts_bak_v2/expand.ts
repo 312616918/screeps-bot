@@ -4,8 +4,8 @@ import * as _ from "lodash";
 import {FacilityMemory} from "./facility";
 
 
-export type ExpandMemory = {
-    creepNameList: string[];
+export type ExpandGroupMemory = {
+    creepNameList?: string[];
 }
 
 export type ExpandCreepMemory = {
@@ -20,10 +20,10 @@ export class Expand {
 
     protected readonly roomName: RoomName;
     protected link: StructureLink;
-    protected memory: ExpandMemory;
+    protected memory: ExpandGroupMemory;
     protected fac: FacilityMemory;
 
-    public constructor(roomName: RoomName, m: ExpandMemory, fac: FacilityMemory) {
+    public constructor(roomName: RoomName, m: ExpandGroupMemory, fac: FacilityMemory) {
         this.roomName = roomName;
         this.memory = m;
         this.fac = fac;

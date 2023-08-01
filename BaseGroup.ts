@@ -12,6 +12,7 @@ export type GroupCreepMemory = {
 }
 
 export type SpawnConfig = {
+    spawnRoomName?: RoomName;
     body: BodyPartConstant[];
     memory: CreepMemory;
     num: number;
@@ -70,7 +71,7 @@ export abstract class BaseGroup<T extends GroupMemory> {
                 return;
             }
             let configIndex = creep.memory.group.configIndex;
-            if(configIndex >= configNumList.length){
+            if (configIndex >= configNumList.length) {
                 return;
             }
             configNumList[configIndex]--;
@@ -83,7 +84,11 @@ export abstract class BaseGroup<T extends GroupMemory> {
                 return;
             }
             let config = spawnConfigList[index];
-            for (const spawn of this.roomFacility.getSpawnList()) {
+            let spawnList = this.roomFacility.getSpawnList();
+            if (config.spawnRoomName) {
+                spawnList = Game.rooms[config.spawnRoomName].find(FIND_MY_SPAWNS);
+            }
+            for (const spawn of spawnList) {
                 if (spawn.spawning) {
                     continue;
                 }
@@ -115,5 +120,14 @@ export abstract class BaseGroup<T extends GroupMemory> {
     }
 
     protected abstract beforeRecycle(creepMemory: CreepMemory): void;
+
+    protected moveNormal(creep: Creep, pos: RoomPosition | { pos: RoomPosition }, range: number) {
+        creep.moveTo(pos, {
+            visualizePathStyle: {
+                stroke: '#ffffff'
+            },
+            range: range
+        });
+    }
 
 }

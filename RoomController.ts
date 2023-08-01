@@ -4,8 +4,8 @@ import {UpgradeGroup, UpgradeMemory} from "./UpgradeGroup";
 import {HarvestGroup, HarvestMemory} from "./HarvestGroup";
 import {RoomFacility, RoomFacilityMemory} from "./RoomFacility";
 import {RoomName} from "./Config";
-import {GroupMemory} from "./BaseGroup";
 import {BuilderGroup, BuildMemory} from "./BuilderGroup";
+import {ClaimGroup} from "./ClaimGroup";
 
 
 export type RoomMemory = {
@@ -28,6 +28,7 @@ export class RoomController {
     private upgradeGroup: UpgradeGroup;
     private carryGroup: CarryGroup;
     private buildGroup: BuilderGroup;
+    private claimGroup: ClaimGroup;
 
     public constructor(roomName: RoomName, roomMemory: RoomMemory) {
         this.roomName = roomName;
@@ -37,6 +38,13 @@ export class RoomController {
         this.initMemory();
 
         this.roomFacility = new RoomFacility(this.roomName, this.roomMemory.facility);
+
+        //未就绪房间
+        if (this.roomFacility.getSpawnList().length == 0) {
+            this.claimGroup = new ClaimGroup(this.move, this.roomMemory.harvest, this.roomFacility);
+            return;
+        }
+
         this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
         this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility);
         this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility);
@@ -45,6 +53,11 @@ export class RoomController {
     }
 
     public run() {
+        if (this.claimGroup) {
+            this.claimGroup.run();
+            return;
+        }
+
         this.checkEvent();
         this.handleEvent();
 
@@ -58,6 +71,7 @@ export class RoomController {
         this.carryGroup.visual();
         this.move.moveAll();
         this.move.cleanCache();
+        this.roomFacility.visualize();
 
     }
 
@@ -133,10 +147,10 @@ export class RoomController {
             if (event.type == "needCarry") {
                 let obj = Game.getObjectById(event.objId);
                 let priority = 0;
-                if(event.objType == "spawn" || event.objType == "extension"){
+                if (event.objType == "spawn" || event.objType == "extension") {
                     priority = 1;
                 }
-                if(event.objType == "drop"){
+                if (event.objType == "drop") {
                     priority = 1;
                 }
                 this.carryGroup.addCarryReq(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
@@ -151,7 +165,8 @@ export class RoomController {
         // 初始化
         if (!this.roomMemory.facility) {
             this.roomMemory.facility = {
-                eventList: []
+                eventList: [],
+                lastLowEnergyTime: 0
             }
         }
         if (!this.roomMemory.move) {

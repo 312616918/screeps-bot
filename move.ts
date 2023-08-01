@@ -114,7 +114,7 @@ export class Move {
                                 if (!c || c.memory.module == "carry") {
                                     continue
                                 }
-                                console.log("move conflict" + cName + " " + posKey)
+                                // console.log("move conflict" + cName + " " + posKey)
                                 let pos = posKey.split("-")
                                 costMatrix.set(Number(pos[0]), Number(pos[1]), 255)
                             }
@@ -149,11 +149,11 @@ export class Move {
                 //last tick failed
                 let posKey = `${nextStep.x}-${nextStep.y}`
                 let cName = this.fac.getCreepPos()[posKey];
-                console.log("move look for " + cName + " " + posKey)
+                // console.log("move look for " + cName + " " + posKey)
                 if (cName && Game.creeps[cName]) {
                     let cModule = Game.creeps[cName].memory.module;
                     if (cModule == "carry" || cModule == "build" || this.fac.getRoadPos()[posKey]) {
-                        console.log("ask move " + cName)
+                        // console.log("ask move " + cName)
                         //mark other move
                         creepMemory.conflictName = cName;
                         if (!this.moveRecord[cName]) {

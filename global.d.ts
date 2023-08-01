@@ -1,5 +1,3 @@
-
-
 import {GroupCreepMemory} from "./BaseGroup";
 import {RoomMemory} from "./RoomController";
 import {CarryCreepMemory} from "./CarryGroup";
@@ -8,8 +6,9 @@ import {HarvestCreepMemory} from "./HarvestGroup";
 import {UpgradeCreepMemory} from "./UpgradeGroup";
 import {RoomName} from "./Config";
 import {BuildCreepMemory} from "./BuilderGroup";
-import {ExpandCreepMemory} from "./ts_bak_v2/expand";
 import {ExpandGroupCreepMemory} from "./BaseExpandGroup";
+import {ExpandMemory} from "./ExpandController";
+import {ClaimCreepMemory} from "./ClaimGroup";
 
 export {}
 
@@ -50,17 +49,8 @@ declare global {
         },
         status: {
             bucketTime: number;
-        }
-    }
-
-    //繁殖接口
-    interface SpawnTemplate {
-        name: string;
-        body: BodyPartConstant[];
-        memory: CreepMemory;
-        spawnNames: string[];
-        priority: number;
-        bakTick: number;
+        },
+        expand: ExpandMemory;
     }
 
     //creep内存分配
@@ -78,7 +68,9 @@ declare global {
         //移动属性
         move?: MoveCreepMemory;
         //扩张creep
-        expand?: { [name: string]: ExpandGroupCreepMemory };
+        expand?: ExpandGroupCreepMemory;
+        //占领
+        claim?: ClaimCreepMemory;
     }
 
     // type LabConfig = {
@@ -121,11 +113,6 @@ declare global {
     //         amount: number;
     //     }
     // }
-
-    interface ModuleMemory {
-        roomName: RoomName;
-        workPosition?: RoomPosition;
-    }
 
 
 }

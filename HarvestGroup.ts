@@ -1,4 +1,5 @@
 import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {roomConfigMap} from "./Config";
 
 export type HarvestMemory = {} & GroupMemory;
 
@@ -16,32 +17,36 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
     protected moduleName: string = "harvest";
 
     protected getSpawnConfigList(): SpawnConfig[] {
-        return [
-            {
-                body: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],
+        let config = roomConfigMap[this.roomName].harvest;
+        let partNum = 5
+        if (this.roomFacility.isInLowEnergy()) {
+            partNum = Math.min(partNum, 2);
+        }
+        let body: BodyPartConstant[] = [];
+        for (let i = 0; i < partNum; i++) {
+            body.push(WORK);
+        }
+        body.push(CARRY);
+        body.push(MOVE);
+
+        let spawnConfigList: SpawnConfig[] = [];
+        config.workPosList.forEach(pos => {
+            let workPos = new RoomPosition(pos.x, pos.y, this.roomName);
+            let source = workPos.findClosestByRange(FIND_SOURCES);
+            spawnConfigList.push({
+                body: body,
                 memory: {
                     module: this.moduleName,
                     harvest: {
-                        targetId: "5bbcacc39099fc012e636284",
+                        targetId: source.id,
                         towerIds: [],
-                        workPosition: new RoomPosition(16, 14, "W2N18")
+                        workPosition: workPos
                     }
                 },
                 num: 1
-            },
-            {
-                body: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE],
-                memory: {
-                    module: this.moduleName,
-                    harvest: {
-                        targetId: "5bbcacc39099fc012e636285",
-                        towerIds: [],
-                        workPosition: new RoomPosition(19, 17, "W2N18")
-                    }
-                },
-                num: 1
-            }
-        ];
+            })
+        })
+        return spawnConfigList;
     }
 
     protected runEachCreep(creep: Creep) {
