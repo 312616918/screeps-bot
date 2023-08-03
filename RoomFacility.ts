@@ -70,12 +70,23 @@ export class RoomFacility {
         }
     }
 
+    public getRoom(): Room {
+        return this.room;
+    }
+
     public roomIsMine(): boolean {
         return this.room && this.room.controller && this.room.controller.my;
     }
 
     public isInLowEnergy(): boolean {
         return this.memory.lastLowEnergyTime && Game.time - this.memory.lastLowEnergyTime > 400;
+    }
+
+    public getCapacityEnergy(): number {
+        if (!this.room) {
+            return 0;
+        }
+        return this.room.energyCapacityAvailable;
     }
 
     public getSpawnList(): StructureSpawn[] {

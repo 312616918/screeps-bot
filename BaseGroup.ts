@@ -92,7 +92,8 @@ export abstract class BaseGroup<T extends GroupMemory> {
                 if (spawn.spawning) {
                     continue;
                 }
-                let creepName = this.moduleName + "-" + Game.time + "-" + index;
+                // let creepName = this.moduleName + "-" + Game.time + "-" + index;
+                let creepName = `${this.roomName}-${this.moduleName}-${Game.time}-${index}`
                 let res = spawn.spawnCreep(config.body, creepName, {
                     memory: {
                         module: this.moduleName,
@@ -126,8 +127,23 @@ export abstract class BaseGroup<T extends GroupMemory> {
             visualizePathStyle: {
                 stroke: '#ffffff'
             },
-            range: range
+            range: range,
+            costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
+                if (roomName == "W2N19") {
+                    for (let i = 0; i < 50; i++) {
+                        costMatrix.set(0, i, 255)
+                    }
+                }
+            }
         });
+    }
+
+    protected countBodyCost(body: BodyPartConstant[]): number {
+        let cost = 0;
+        body.forEach(part => {
+            cost += BODYPART_COST[part];
+        });
+        return cost;
     }
 
 }

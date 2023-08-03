@@ -7,7 +7,7 @@ export type ClaimCreepMemory = {
     role: "claim" | "build";
     sourceId?: string;
     siteId?: string;
-    state?: "harvest" | "build";
+    state?: "harvest" | "build" | "input";
 };
 
 

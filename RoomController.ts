@@ -6,6 +6,7 @@ import {RoomFacility, RoomFacilityMemory} from "./RoomFacility";
 import {RoomName} from "./Config";
 import {BuilderGroup, BuildMemory} from "./BuilderGroup";
 import {ClaimGroup} from "./ClaimGroup";
+import {GroupMemory} from "./BaseGroup";
 
 
 export type RoomMemory = {
@@ -15,6 +16,7 @@ export type RoomMemory = {
     harvest: HarvestMemory;
     upgrade: UpgradeMemory;
     build: BuildMemory;
+    claim: GroupMemory;
 }
 
 export class RoomController {
@@ -41,7 +43,7 @@ export class RoomController {
 
         //未就绪房间
         if (this.roomFacility.getSpawnList().length == 0) {
-            this.claimGroup = new ClaimGroup(this.move, this.roomMemory.harvest, this.roomFacility);
+            this.claimGroup = new ClaimGroup(this.move, this.roomMemory.claim, this.roomFacility);
             return;
         }
 
@@ -195,6 +197,11 @@ export class RoomController {
             this.roomMemory.build = {
                 creepNameList: [],
                 workPosMap: {}
+            }
+        }
+        if (!this.roomMemory.claim) {
+            this.roomMemory.claim = {
+                creepNameList: []
             }
         }
     }

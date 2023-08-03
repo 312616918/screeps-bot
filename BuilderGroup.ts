@@ -23,7 +23,7 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
             return [];
         }
         return [{
-            body: [WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE],
+            body: [WORK, CARRY, MOVE],
             memory: {
                 module: this.moduleName,
                 build: {

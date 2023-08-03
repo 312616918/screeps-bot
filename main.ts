@@ -32,6 +32,7 @@ function main() {
         try {
             runRoom(RoomName[r]);
         } catch (e) {
+            console.log("room error:" + RoomName[r])
             console.log(e.stack);
         }
     }
@@ -60,5 +61,14 @@ function main() {
             Game.cpu.generatePixel();
         }
         Memory.status.bucketTime = Game.time;
+    }
+
+    if(Game.time % 10000 == 0){
+        for(let name in Memory.creeps){
+            if(!Game.creeps[name]){
+                console.log(`delete creep ${name}`)
+                delete Memory.creeps[name];
+            }
+        }
     }
 }

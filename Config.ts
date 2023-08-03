@@ -4,6 +4,42 @@ export enum RoomName {
     W2N19 = "W2N19",
     W1N19 = "W1N19",
     W4N21 = "W4N21",
+    W2N22 = "W2N22",
+}
+
+export const directionBiasMap = {
+    [TOP]: {
+        x: 0,
+        y: -1
+    },
+    [TOP_RIGHT]: {
+        x: 1,
+        y: -1
+    },
+    [RIGHT]: {
+        x: 1,
+        y: 0
+    },
+    [BOTTOM_RIGHT]: {
+        x: 1,
+        y: 1
+    },
+    [BOTTOM]: {
+        x: 0,
+        y: 1
+    },
+    [BOTTOM_LEFT]: {
+        x: -1,
+        y: 1
+    },
+    [LEFT]: {
+        x: -1,
+        y: 0
+    },
+    [TOP_LEFT]: {
+        x: -1,
+        y: -1
+    }
 }
 
 
@@ -44,7 +80,7 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 6,
+            partNum: 8,
             workPosList: [{
                 x: 14,
                 y: 12,
@@ -60,7 +96,7 @@ export const roomConfigMap: {
     [RoomName.W3N18]: {
         carry: {
             partNum: 1,
-            carryNum: 1,
+            carryNum: 4,
         },
         harvest: {
             workPosList: [{
@@ -69,9 +105,15 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 1,
+            partNum: 2,
             workPosList: [{
                 x: 33,
+                y: 27,
+            }, {
+                x: 31,
+                y: 27,
+            }, {
+                x: 32,
                 y: 27,
             }]
         }
@@ -79,7 +121,7 @@ export const roomConfigMap: {
     [RoomName.W2N19]: {
         carry: {
             partNum: 1,
-            carryNum: 1,
+            carryNum: 4,
         },
         harvest: {
             workPosList: [{
@@ -88,9 +130,15 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 1,
+            partNum: 2,
             workPosList: [{
                 x: 8,
+                y: 42,
+            }, {
+                x: 6,
+                y: 42,
+            }, {
+                x: 7,
                 y: 42,
             }]
         }
@@ -98,7 +146,7 @@ export const roomConfigMap: {
     [RoomName.W1N19]: {
         carry: {
             partNum: 1,
-            carryNum: 1,
+            carryNum: 4,
         },
         harvest: {
             workPosList: [{
@@ -107,9 +155,15 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 1,
+            partNum: 2,
             workPosList: [{
                 x: 38,
+                y: 24
+            }, {
+                x: 36,
+                y: 24
+            }, {
+                x: 37,
                 y: 24
             }]
         }
@@ -117,7 +171,7 @@ export const roomConfigMap: {
     [RoomName.W4N21]: {
         carry: {
             partNum: 1,
-            carryNum: 1,
+            carryNum: 4,
         },
         harvest: {
             workPosList: [{
@@ -129,10 +183,44 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 1,
+            partNum: 2,
             workPosList: [{
                 x: 9,
                 y: 12,
+            }, {
+                x: 7,
+                y: 13,
+            }, {
+                x: 8,
+                y: 13,
+            }]
+        }
+    },
+    [RoomName.W2N22]: {
+        carry: {
+            partNum: 1,
+            carryNum: 4,
+        },
+        harvest: {
+            workPosList: [{
+                x: 27,
+                y: 34,
+            }, {
+                x: 5,
+                y: 35,
+            }]
+        },
+        upgrade: {
+            partNum: 2,
+            workPosList: [{
+                x: 10,
+                y: 21,
+            }, {
+                x: 8,
+                y: 21,
+            }, {
+                x: 9,
+                y: 21,
             }]
         }
     }

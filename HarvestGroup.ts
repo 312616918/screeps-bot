@@ -21,6 +21,11 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         let partNum = 5
         if (this.roomFacility.isInLowEnergy()) {
             partNum = Math.min(partNum, 2);
+        } else {
+            let availableEnergy = this.roomFacility.getCapacityEnergy();
+            let availablePartNum = Math.floor((availableEnergy - 100 )/ 100);
+            partNum = Math.min(5, availablePartNum);
+            // console.log(`room:${this.roomName} availableEnergy: ${availableEnergy} availablePartNum: ${availablePartNum} partNum: ${partNum}`)
         }
         let body: BodyPartConstant[] = [];
         for (let i = 0; i < partNum; i++) {

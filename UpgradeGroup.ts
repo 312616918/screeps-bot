@@ -1,5 +1,5 @@
 import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
-import {roomConfigMap} from "./Config";
+import {directionBiasMap, roomConfigMap} from "./Config";
 
 export type UpgradeMemory = {} & GroupMemory;
 
@@ -24,6 +24,13 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
         }
         body.push(CARRY);
         body.push(MOVE);
+        if (!this.roomFacility.isInLowEnergy()) {
+            let cost = this.countBodyCost(body);
+            let availableEnergy = this.roomFacility.getCapacityEnergy();
+            if (availableEnergy - cost >= 50) {
+                body.push(CARRY);
+            }
+        }
 
         let spawnConfigList: SpawnConfig[] = [];
         config.workPosList.forEach(pos => {
