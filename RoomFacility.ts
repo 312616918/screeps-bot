@@ -9,6 +9,10 @@ export type EventItem = {
     amount: number;
 }
 
+export type ClosestRecord = {
+    objId: string;
+    distance: number;
+}
 
 export type RoomFacilityMemory = {
     // spawnNameList: string[];
@@ -26,6 +30,9 @@ export type RoomFacilityMemory = {
 
     eventList: EventItem[];
     lastLowEnergyTime: number;
+    closestLinkMap: {
+        [objId: string]: ClosestRecord;
+    }
 }
 
 
@@ -52,6 +59,7 @@ export class RoomFacility {
     private sourceContainerList: StructureContainer[];
     private extensionList: StructureExtension[];
     private storage: StructureStorage;
+    private linkList: StructureLink[];
 
 
     public constructor(roomName: RoomName, memory: RoomFacilityMemory) {
@@ -205,6 +213,49 @@ export class RoomFacility {
             this.storage = this.room.storage;
         }
         return this.storage;
+    }
+
+    public getLinkList(): StructureLink[] {
+        if (!this.linkList) {
+            this.linkList = this.room.find<StructureLink>(FIND_MY_STRUCTURES, {
+                filter: (s) => {
+                    return s.structureType == STRUCTURE_LINK;
+                }
+            })
+        }
+        return this.linkList;
+    }
+
+    public getClosestLink(objId: string): ClosestRecord {
+        if (!this.memory.closestLinkMap) {
+            this.memory.closestLinkMap = {};
+        }
+        if (this.memory.closestLinkMap[objId] && Game.time % 1000 != 0) {
+            return this.memory.closestLinkMap[objId];
+        }
+        let result = this.memory.closestLinkMap[objId] = {
+            objId: null,
+            distance: 255
+        };
+        let obj = Game.getObjectById<{ pos: RoomPosition }>(objId);
+        if (!obj) {
+            return result;
+        }
+        let linkList = this.getLinkList();
+        let closestLink: StructureLink = null;
+        let minDistance = 99999;
+        for (let link of linkList) {
+            let distance = obj.pos.findPathTo(link.pos, {
+                ignoreCreeps: true,
+            }).length;
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestLink = link;
+            }
+        }
+        result.objId = closestLink.id;
+        result.distance = minDistance;
+        return result;
     }
 
     public visualize() {

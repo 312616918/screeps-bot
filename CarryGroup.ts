@@ -54,7 +54,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
         }
         let config = roomConfigMap[this.roomName].carry;
         let partNum = config.partNum;
-        if(this.roomFacility.isInLowEnergy()){
+        if (this.roomFacility.isInLowEnergy()) {
             partNum = Math.min(partNum, 1);
         }
         let body: BodyPartConstant[] = [];
@@ -109,6 +109,11 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
             return;
         }
         if (task.carryType == "input") {
+            if (creep.store.getUsedCapacity(task.resourceType) == 0) {
+                console.log(`error: ${creepName} carry input but no resource`)
+                this.finishTask(creepMemory, 0);
+                return;
+            }
             this.move.reserveMove(creep, target.pos, 1);
             let res = creep.transfer(<AnyCreep | Structure>target, task.resourceType, taskRecord.reserved)
             if (res == ERR_NOT_ENOUGH_RESOURCES || res == ERR_FULL) {
@@ -204,19 +209,23 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
             if (creep.memory.carry.taskRecordList.length == 0) {
                 continue;
             }
-            let task = this.memory.taskMap[creep.memory.carry.taskRecordList[0].taskId];
-            if (!task) {
-                continue;
+            let lastPos = creep.pos;
+            for (let taskRecord of creep.memory.carry.taskRecordList) {
+                let task = this.memory.taskMap[taskRecord.taskId];
+                if (!task) {
+                    continue;
+                }
+                let obj = Game.getObjectById<ObjectWithPos>(task.objId);
+                room.visual.line(lastPos, obj.pos, {
+                    color: "red",
+                    lineStyle: "dashed"
+                })
+                lastPos = obj.pos;
             }
-            let obj = Game.getObjectById<ObjectWithPos>(task.objId);
-            room.visual.line(creep.pos, obj.pos, {
-                color: "red",
-                lineStyle: "dashed"
-            })
         }
     }
 
-    protected takeClosestTask(creep: Creep, taskArgList: TaskArg[]): void {
+    protected getClosestTask(creep: Creep, taskArgList: TaskArg[]): TaskArg {
         taskArgList.sort((a, b) => {
             if (a.task.priority != b.task.priority) {
                 return b.task.priority - a.task.priority;
@@ -230,8 +239,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
             let bPos = objB.pos;
             return creep.pos.getRangeTo(aPos) - creep.pos.getRangeTo(bPos);
         });
-        let taskArg = taskArgList[0];
-        this.takeTask(creep, taskArg.task, taskArg.amount, taskArg.needRec);
+        return taskArgList[0];
     }
 
     protected takeTask(creep: Creep, task: CarryTask, amount: number, needRec: boolean): void {
@@ -279,7 +287,8 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
                     });
                 }
                 if (taskArgList.length > 0) {
-                    this.takeClosestTask(creep, taskArgList);
+                    let finalTask = this.getClosestTask(creep, taskArgList);
+                    this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                     return;
                 }
                 //storage
@@ -293,6 +302,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
                     return;
                 }
             }
+            return;
         }
 
         //2. hasn't resource
@@ -316,7 +326,8 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
                 });
             }
             if (taskArgList.length > 0) {
-                this.takeClosestTask(creep, taskArgList);
+                let finalTask = this.getClosestTask(creep, taskArgList);
+                this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                 return;
             }
             for (let taskId in this.memory.taskMap) {
@@ -330,14 +341,23 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
                 if (this.getStorageAvailableAmount(task.resourceType) <= 0) {
                     continue;
                 }
-                let storageTaskId = this.addCarryReq(this.roomFacility.getStorage(), "output", task.resourceType,
-                    capAmount, 0);
-                if (!storageTaskId) {
+                if (!this.roomFacility.getStorage()) {
                     continue;
                 }
+                taskArgList.push({
+                    task: task,
+                    amount: capAmount,
+                    needRec: true
+                })
+            }
+            if (taskArgList.length > 0) {
+                let finalTask = this.getClosestTask(creep, taskArgList);
+                let storageTaskId = this.addCarryReq(this.roomFacility.getStorage(), "output", finalTask.task.resourceType,
+                    capAmount, 0);
                 this.takeTask(creep, this.memory.taskMap[storageTaskId], capAmount, false);
-                this.takeTask(creep, task, capAmount, true);
+                this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                 creep.say("take from storage");
+                return;
             }
         }
     }

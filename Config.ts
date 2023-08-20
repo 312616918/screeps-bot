@@ -67,8 +67,8 @@ export const roomConfigMap: {
 } = {
     [RoomName.W2N18]: {
         carry: {
-            partNum: 1,
-            carryNum: 4,
+            partNum: 2,
+            carryNum: 8,
         },
         harvest: {
             workPosList: [{
@@ -95,7 +95,7 @@ export const roomConfigMap: {
     },
     [RoomName.W3N18]: {
         carry: {
-            partNum: 1,
+            partNum: 2,
             carryNum: 4,
         },
         harvest: {
@@ -105,15 +105,9 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 2,
+            partNum: 8,
             workPosList: [{
                 x: 33,
-                y: 27,
-            }, {
-                x: 31,
-                y: 27,
-            }, {
-                x: 32,
                 y: 27,
             }]
         }
@@ -211,15 +205,9 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 2,
+            partNum: 8,
             workPosList: [{
                 x: 10,
-                y: 21,
-            }, {
-                x: 8,
-                y: 21,
-            }, {
-                x: 9,
                 y: 21,
             }]
         }

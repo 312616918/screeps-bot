@@ -16,7 +16,11 @@ export class ExpandController {
                 creepNameList: [],
                 state: "spawn",
                 nameShape: {},
-                moveRecord: {}
+                moveRecord: {
+                    record: {}
+                },
+                nextPosMap: {},
+                curPosMap: {}
             }
         }
     }

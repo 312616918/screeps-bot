@@ -40,6 +40,7 @@ export abstract class BaseGroup<T extends GroupMemory> {
     public run() {
         this.spawnCreeps()
         let nameSet = {}
+        let creepList = [];
         for (let creepName of this.memory.creepNameList) {
             if (nameSet[creepName]) {
                 console.log(`creep name duplicate: ${this.roomName} ${creepName}`);
@@ -55,8 +56,15 @@ export abstract class BaseGroup<T extends GroupMemory> {
             if (creep.spawning) {
                 continue;
             }
-            this.runEachCreep(creep);
+            creepList.push(creep);
         }
+        this.beforeRunEach(creepList);
+        creepList.forEach(creep => {
+            this.runEachCreep(creep);
+        });
+    }
+
+    protected beforeRunEach(creepList: Creep[]) {
     }
 
 

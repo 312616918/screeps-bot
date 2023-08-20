@@ -22,8 +22,27 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
         if (sites.length == 0) {
             return [];
         }
+        let body: BodyPartConstant[] = [];
+        if(this.roomFacility.isInLowEnergy()){
+            body = [WORK, CARRY, MOVE];
+        }else{
+            let partNum = (this.roomFacility.getRoom().energyAvailable-100) / 200;
+            partNum = Math.floor(partNum);
+            partNum = Math.min(4, partNum);
+            if(partNum < 1){
+                return [];
+            }
+            for (let i = 0; i < partNum; i++) {
+                body.push(WORK);
+                body.push(CARRY);
+                body.push(CARRY);
+            }
+            body.push(MOVE);
+            body.push(MOVE);
+        }
+        console.log(`room ${this.roomName} build body: ${JSON.stringify(body)}`)
         return [{
-            body: [WORK, CARRY, MOVE],
+            body: body,
             memory: {
                 module: this.moduleName,
                 build: {

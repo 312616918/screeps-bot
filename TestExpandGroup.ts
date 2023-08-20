@@ -18,16 +18,30 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
         runOrder: ["*", "x"],
         roleConfigMap: {
             "*": {
-                body: [MOVE],
+                body: [TOUGH, TOUGH,
+                    MOVE, MOVE,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,],
                 memory: {}
             },
             "x": {
-                body: [MOVE],
+                body: [TOUGH, TOUGH,
+                    MOVE, MOVE,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,
+                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    HEAL, HEAL, HEAL, HEAL, HEAL,],
                 memory: {}
             }
         },
         meet: {
-            pos: new RoomPosition(35, 25, RoomName.W2N18),
+            pos: new RoomPosition(4, 12, RoomName.W2N18),
             dir: TOP
         },
         headPos: {
@@ -37,6 +51,25 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
     };
 
     protected runEachCreep(creep: Creep) {
+        if (creep.hits < creep.hitsMax) {
+            creep.heal(creep);
+            return;
+        }
+        let creepList = this.memory.creepNameList.map(name => Game.creeps[name]);
+        creepList.forEach(otherCreep => {
+            if (otherCreep.id == creep.id) {
+                return;
+            }
+            if (otherCreep.hits >= otherCreep.hitsMax) {
+                return;
+            }
+            if (creep.pos.getRangeTo(otherCreep.pos) > 1) {
+                creep.rangedHeal(otherCreep);
+            } else {
+                creep.heal(otherCreep);
+            }
+        })
+
     }
 
 }

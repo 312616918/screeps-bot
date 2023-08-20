@@ -7,12 +7,14 @@ import {RoomName} from "./Config";
 import {BuilderGroup, BuildMemory} from "./BuilderGroup";
 import {ClaimGroup} from "./ClaimGroup";
 import {GroupMemory} from "./BaseGroup";
+import {CarryGroupV2, CarryMemoryV2} from "./CarryGroupV2";
 
 
 export type RoomMemory = {
     move: MoveMemory;
     facility: RoomFacilityMemory;
     carry: CarryMemory;
+    carry_v2?: CarryMemoryV2;
     harvest: HarvestMemory;
     upgrade: UpgradeMemory;
     build: BuildMemory;
@@ -29,6 +31,7 @@ export class RoomController {
     private harvestGroup: HarvestGroup;
     private upgradeGroup: UpgradeGroup;
     private carryGroup: CarryGroup;
+    private carryGroupV2: CarryGroupV2;
     private buildGroup: BuilderGroup;
     private claimGroup: ClaimGroup;
 
@@ -50,7 +53,11 @@ export class RoomController {
         this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
         this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility);
         this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility);
-        this.carryGroup = new CarryGroup(this.move, this.roomMemory.carry, this.roomFacility);
+        if (this.roomName == "W2N22" || this.roomName == "W3N18") {
+            this.carryGroupV2 = new CarryGroupV2(this.move, this.roomMemory.carry_v2, this.roomFacility);
+        } else {
+            this.carryGroup = new CarryGroup(this.move, this.roomMemory.carry, this.roomFacility);
+        }
         this.buildGroup = new BuilderGroup(this.move, this.roomMemory.build, this.roomFacility);
     }
 
@@ -69,8 +76,14 @@ export class RoomController {
         this.upgradeGroup.run();
         this.buildGroup.run();
 
-        this.carryGroup.run();
-        this.carryGroup.visual();
+        if (this.carryGroupV2) {
+            this.carryGroupV2.run();
+            this.carryGroupV2.runLink();
+            this.carryGroupV2.visual();
+        } else {
+            this.carryGroup.run();
+            this.carryGroup.visual();
+        }
         this.move.moveAll();
         this.move.cleanCache();
         this.roomFacility.visualize();
@@ -155,6 +168,10 @@ export class RoomController {
                 if (event.objType == "drop") {
                     priority = 1;
                 }
+                if (this.carryGroupV2) {
+                    this.carryGroupV2.addCarryTask(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
+                    continue;
+                }
                 this.carryGroup.addCarryReq(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
             }
             // console.log("unknown event type:"+event.type)
@@ -168,7 +185,8 @@ export class RoomController {
         if (!this.roomMemory.facility) {
             this.roomMemory.facility = {
                 eventList: [],
-                lastLowEnergyTime: 0
+                lastLowEnergyTime: 0,
+                closestLinkMap: {}
             }
         }
         if (!this.roomMemory.move) {
@@ -193,6 +211,15 @@ export class RoomController {
                 storageTaskMap: {}
             }
         }
+        if (!this.roomMemory.carry_v2) {
+            this.roomMemory.carry_v2 = {
+                creepNameList: [],
+                taskMap: {},
+                stepMap: {},
+                storageStepMap: {},
+                linkStatusMap: {},
+            }
+        }
         if (!this.roomMemory.build) {
             this.roomMemory.build = {
                 creepNameList: [],
@@ -215,8 +242,10 @@ export class RoomController {
             }
             let damagedStructure = tower.room.find(FIND_STRUCTURES, {
                 filter: (structure) => {
-                    if (structure.structureType != STRUCTURE_WALL &&
-                        structure.structureType != STRUCTURE_RAMPART) {
+                    if (structure.structureType == STRUCTURE_WALL) {
+                        return false;
+                    }
+                    if (structure.structureType != STRUCTURE_RAMPART) {
                         return structure.hits < structure.hitsMax - 1000;
                     }
                     return structure.hits < 20000;

@@ -9,6 +9,7 @@ import {BuildCreepMemory} from "./BuilderGroup";
 import {ExpandGroupCreepMemory} from "./BaseExpandGroup";
 import {ExpandMemory} from "./ExpandController";
 import {ClaimCreepMemory} from "./ClaimGroup";
+import {CarryCreepMemoryV2} from "./CarryGroupV2";
 
 export {}
 
@@ -59,6 +60,7 @@ declare global {
         group?: GroupCreepMemory;
         //运输creep
         carry?: CarryCreepMemory;
+        carry_v2?: CarryCreepMemoryV2;
         //开采creep
         harvest?: HarvestCreepMemory;
         //建造creep

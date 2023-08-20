@@ -9,6 +9,8 @@ export type HarvestCreepMemory = {
     towerIds: string[];
     //工作地点，无此属性代表以就位
     workPosition?: RoomPosition;
+    transferObjId?: string;
+    linkId?: string;
 }
 
 
@@ -23,7 +25,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             partNum = Math.min(partNum, 2);
         } else {
             let availableEnergy = this.roomFacility.getCapacityEnergy();
-            let availablePartNum = Math.floor((availableEnergy - 100 )/ 100);
+            let availablePartNum = Math.floor((availableEnergy - 100) / 100);
             partNum = Math.min(5, availablePartNum);
             // console.log(`room:${this.roomName} availableEnergy: ${availableEnergy} availablePartNum: ${availablePartNum} partNum: ${partNum}`)
         }
@@ -70,21 +72,37 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             creep.memory.harvest.towerIds = towerList.filter(tower => {
                 return tower.pos.getRangeTo(workPos) <= 1;
             }).map(tower => tower.id);
+            if (this.roomFacility.getRoom().storage && this.roomFacility.getRoom().storage.pos.getRangeTo(workPos) <= 1) {
+                creep.memory.harvest.transferObjId = this.roomFacility.getRoom().storage.id;
+            }
+
             delete creep.memory.harvest["workPos"];
         }
         creep.harvest(target);
 
+        let energyIncrease = creep.getActiveBodyparts(WORK) * 2;
         let towerIds = creep.memory.harvest.towerIds;
+        let hasTransfer = false;
         if (towerIds.length > 0) {
             towerIds.forEach(towerId => {
                 let tower = Game.getObjectById<StructureTower>(towerId);
                 if (!tower) {
                     return;
                 }
-                if (tower.store.getFreeCapacity(RESOURCE_ENERGY) > 100) {
+                if (tower.store.getFreeCapacity(RESOURCE_ENERGY) > 100 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
                     creep.transfer(tower, RESOURCE_ENERGY);
+                    hasTransfer = true;
                 }
             })
+        }
+        if(!hasTransfer && creep.memory.harvest.transferObjId){
+            let transferObj = Game.getObjectById<StructureStorage>(creep.memory.harvest.transferObjId);
+            if(transferObj
+                && transferObj.store.getFreeCapacity(RESOURCE_ENERGY) > 100
+                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease){
+                creep.transfer(transferObj, RESOURCE_ENERGY);
+                hasTransfer = true;
+            }
         }
     }
 

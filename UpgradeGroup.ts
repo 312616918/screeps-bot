@@ -7,6 +7,8 @@ export type UpgradeCreepMemory = {
     targetId?: string;
     //工作地点，无此属性代表以就位
     workPosition: RoomPosition;
+    inputObjId?: string;
+    linkId?: string;
 }
 
 export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
@@ -60,18 +62,30 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
         if (pos) {
             let workPos = new RoomPosition(pos.x, pos.y, pos.roomName);
             if (creep.pos.getRangeTo(workPos)) {
-                creep.moveTo(workPos, {
-                    visualizePathStyle: {
-                        stroke: '#ffffff'
-                    }
-                });
+                this.move.reserveMove(creep, workPos, 0);
                 return;
-            } else {
-                delete creep.memory.upgrade["workPosition"];
             }
+            let linkRecord = this.roomFacility.getClosestLink(creep.id);
+            if(linkRecord.distance<=1){
+                creep.memory.upgrade.inputObjId = linkRecord.objId;
+            }
+            if (this.roomFacility.getRoom().storage && workPos.getRangeTo(this.roomFacility.getRoom().storage) <= 1) {
+                creep.memory.upgrade.inputObjId = this.roomFacility.getRoom().storage.id;
+            }
+            delete creep.memory.upgrade["workPosition"];
         }
         creep.upgradeController(target);
-
+        if (creep.memory.upgrade.inputObjId) {
+            let energyCost = creep.getActiveBodyparts(WORK);
+            if (creep.store.getUsedCapacity() > energyCost) {
+                return;
+            }
+            let inputObj = Game.getObjectById<StructureStorage>(creep.memory.upgrade.inputObjId);
+            if (inputObj) {
+                creep.withdraw(inputObj, RESOURCE_ENERGY);
+                return;
+            }
+        }
 
         if (creep.store.getUsedCapacity() < 20) {
             this.roomFacility.submitEvent({

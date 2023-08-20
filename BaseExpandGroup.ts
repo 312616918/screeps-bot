@@ -1,9 +1,11 @@
 import {RoomFacility} from "./RoomFacility";
 import {RoomName} from "./Config";
+import {curry} from "lodash";
 
 
 type MoveRecord = {
     [creepName: string]: {
+        disabled?: boolean;
         activeDir?: DirectionConstant;
         activePos?: RoomPosition;
         passiveDir?: DirectionConstant;
@@ -18,6 +20,13 @@ export type ExpandGroupMemory = {
     };
     moveRecord: MoveRecord;
     headName?: string;
+    nextPosMap: {
+        [posKey: string]: string;
+    };
+    curPosMap: {
+        [posKey: string]: string;
+    };
+    headBlocked?: boolean;
 }
 
 export type ExpandGroupCreepMemory = {
@@ -31,7 +40,7 @@ export type ExpandGroupCreepMemory = {
         path: PathFinderPath;
         index: number;
         blockTick: number;
-    }
+    };
 }
 
 
@@ -56,6 +65,13 @@ export type ExpandSpawnConfig = {
         x: number;
         y: number;
     };
+}
+
+type SetPosItem = {
+    parentCreep: Creep;
+    name: string;
+    dir: DirectionConstant;
+    pos: RoomPosition;
 }
 
 let directionBiasMap = {
@@ -118,6 +134,56 @@ function getDirRoom(roomName: string, x: number, y: number): string {
     return `${newXDir}${newXNum}${newYDir}${newYNum}`;
 }
 
+function getStandPos(x: number, y: number, roomName: string): RoomPosition {
+    let xRoomBias = 0;
+    let yRoomBias = 0;
+    if (x < 0) {
+        xRoomBias = -1;
+        x = 49;
+    }
+    if (x > 49) {
+        xRoomBias = 1;
+        x = 0;
+    }
+    if (y < 0) {
+        yRoomBias = -1;
+        y = 49;
+    }
+    if (y > 49) {
+        yRoomBias = 1;
+        y = 0;
+    }
+    let targetRoomName = getDirRoom(roomName, xRoomBias, yRoomBias);
+    return new RoomPosition(x, y, targetRoomName);
+}
+
+function checkPosWalkable(pos: RoomPosition): boolean {
+    let room = Game.rooms[pos.roomName];
+    if (!room) {
+        return true;
+    }
+    let terrain = room.getTerrain();
+    if (terrain.get(pos.x, pos.y) == TERRAIN_MASK_WALL) {
+        return false;
+    }
+    for (const struct of room.find(FIND_STRUCTURES)) {
+        if (struct.pos.x != pos.x || struct.pos.y != pos.y) {
+            continue;
+        }
+        if (struct.structureType == STRUCTURE_CONTAINER) {
+            continue;
+        }
+        if (struct.structureType == STRUCTURE_RAMPART && struct.my) {
+            continue;
+        }
+        if (struct.structureType == STRUCTURE_ROAD) {
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
 export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
     protected memory: T;
     protected name: string;
@@ -125,6 +191,8 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
 
     public constructor(memory: T) {
         this.memory = memory;
+        this.memory.curPosMap = {};
+        this.memory.nextPosMap = {};
     }
 
     protected abstract runEachCreep(creep: Creep);
@@ -133,42 +201,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         this.name = this.expandSpawnConfig.name;
         this.spawnCreeps()
         let nameSet = {}
-        if (this.memory.state == "spawn" || this.memory.state == "meeting") {
-            let allInPos = this.setCreepTargetPos(this.expandSpawnConfig.meet.pos, this.expandSpawnConfig.meet.dir);
-            for (let creepName of this.memory.creepNameList) {
-                console.log(`try setCreepTargetPos ${creepName}`)
-                let creep = Game.creeps[creepName];
-                if (!creep) {
-                    continue;
-                }
-                this.reverseMove(creep);
-            }
-            this.moveAll();
-            if (allInPos && this.memory.state == "meeting") {
-                this.memory.state = "run";
-            }
-            return;
-        }
-        if (this.memory.state == "run") {
-            for (let flagName in Game.flags) {
-                let mtx = flagName.match(/(.+)_(\d)/);
-                if (!mtx) {
-                    continue;
-                }
-                let name = mtx[1];
-                if (name != this.name) {
-                    continue;
-                }
-                let dir = Number(mtx[2]);
-                this.reverseMoveAsOne(Game.flags[flagName].pos, <DirectionConstant>dir);
-            }
-            // let flag = Game.flags[this.name];
-            // console.log(`flag ${this.name} ${JSON.stringify(flag)}`)
-            // if (flag) {
-            //     let pos = flag.pos;
-            //     this.setCreepTargetPos(pos, TOP);
-            // }
-        }
+        let creepList = [];
         for (let creepName of this.memory.creepNameList) {
             if (nameSet[creepName]) {
                 console.log(`creep name duplicate: ${this.name} ${creepName}`);
@@ -189,8 +222,38 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             if (this.memory.nameShape[shapePosKey] != creepName) {
                 this.memory.nameShape[shapePosKey] = creepName;
             }
+            let posKey = `${creep.pos.x}_${creep.pos.y}_${creep.pos.roomName}`;
+            this.memory.curPosMap[posKey] = creepName;
+            creepList.push(creep);
+        }
+        for (let creep of creepList) {
             this.runEachCreep(creep);
         }
+        if (this.memory.state == "spawn" || this.memory.state == "meeting") {
+            this.setCreepTargetPos(this.expandSpawnConfig.meet.pos, this.expandSpawnConfig.meet.dir);
+            let allInPos = this.checkAlreadyInPos();
+            this.moveAll();
+            if (allInPos && this.memory.state == "meeting") {
+                this.memory.state = "run";
+            }
+            return;
+        }
+        if (this.memory.state == "run") {
+            for (let flagName in Game.flags) {
+                let mtx = flagName.match(/(.+)_(\d)/);
+                if (!mtx) {
+                    continue;
+                }
+                let name = mtx[1];
+                if (name != this.name) {
+                    continue;
+                }
+                let dir = Number(mtx[2]);
+                this.reverseMoveAsOne(Game.flags[flagName].pos, <DirectionConstant>dir);
+            }
+        }
+        this.memory.curPosMap = {};
+        this.memory.nextPosMap = {};
     }
 
 
@@ -284,7 +347,8 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
 
     protected abstract beforeRecycle(creepMemory: CreepMemory): void;
 
-    private PathFinderPath(fromPos: RoomPosition, toPos: RoomPosition, range: number) {
+    private pathFinderPath(fromPos: RoomPosition, toPos: RoomPosition, range: number) {
+        let moveRecord = this.memory.moveRecord;
         return PathFinder.search(fromPos, {
                 pos: toPos,
                 range: range
@@ -293,12 +357,16 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                 roomCallback(roomName: string): boolean | CostMatrix {
                     try {
                         let costMatrix = new PathFinder.CostMatrix();
-                        // let roomFacility = RoomFacility.roomFacilityMap[roomName];
-                        // if (roomFacility) {
-                        //     for (let posKey in roomFacility.getCreepPos()) {
-                        //         let pos = posKey.split("-");
-                        //         costMatrix.set(Number(pos[0]), Number(pos[1]), 1)
+                        // //已预定位置无法通过
+                        // for (let posKey in moveRecord.nextPosMap) {
+                        //     let sp = posKey.split("_");
+                        //     let x = Number(sp[0]);
+                        //     let y = Number(sp[1]);
+                        //     let posRoomName = sp[2];
+                        //     if (posRoomName != roomName) {
+                        //         continue;
                         //     }
+                        //     costMatrix.set(x, y, 255);
                         // }
                         let room = Game.rooms[roomName];
                         if (room) {
@@ -306,12 +374,16 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                                 if (struct.structureType === STRUCTURE_ROAD) {
                                     // Favor roads over plain tiles
                                     costMatrix.set(struct.pos.x, struct.pos.y, 1);
-                                } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-                                    (struct.structureType !== STRUCTURE_RAMPART ||
-                                        !struct.my)) {
-                                    // Can't walk through non-walkable buildings
-                                    costMatrix.set(struct.pos.x, struct.pos.y, 0xff);
+                                    return;
                                 }
+                                if (struct.structureType == STRUCTURE_CONTAINER) {
+                                    return;
+                                }
+                                if (struct.structureType == STRUCTURE_RAMPART && struct.my) {
+                                    return;
+                                }
+                                // Can't walk through non-walkable buildings
+                                costMatrix.set(struct.pos.x, struct.pos.y, 255);
                             });
                         }
                         return costMatrix;
@@ -331,9 +403,6 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         //验证是否全部可达就位
         let allInPos = true;
         for (let creepName of this.memory.creepNameList) {
-            if (creepName == headCreep.name) {
-                continue;
-            }
             let creep = Game.creeps[creepName];
             let creepMemory = creep.memory.expand;
             let targetPos = creepMemory.targetPos;
@@ -341,45 +410,53 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                 continue;
             }
             targetPos = new RoomPosition(targetPos.x, targetPos.y, targetPos.roomName);
-            if (creep.pos.getRangeTo(targetPos) == 0) {
+            if (creep.name == headCreep.name || creep.pos.getRangeTo(targetPos) == 0) {
                 continue;
             }
             console.log(`not in pos ${creepName} ${JSON.stringify(targetPos)} ${creep.pos.getRangeTo(targetPos)}`)
             allInPos = false;
             break;
         }
-
         let headCreepMemory = headCreep.memory.expand;
         headCreepMemory.targetPos = pos;
         this.reverseMove(headCreep);
-        console.log(`set reverseMoveAsOne ${headCreep.name} ${JSON.stringify(this.memory.moveRecord[headCreep.name])} ${allInPos}`)
-        if (this.memory.moveRecord[headCreep.name] && allInPos) {
-            let headDir = this.memory.moveRecord[headCreep.name].activeDir;
-            if (keepDir) {
-                headDir = keepDir;
+        let headMoveRecord = this.memory.moveRecord[headCreep.name];
+        if (<Number>keepDir == 0) {
+            if (headMoveRecord && headMoveRecord.activeDir) {
+                keepDir = headMoveRecord.activeDir;
             }
-            console.log(`set reverseMoveAsOne ${headCreep.name} ${headDir} ${JSON.stringify(this.memory.moveRecord[headCreep.name])}`)
-            this.setCreepTargetPos(this.memory.moveRecord[headCreep.name].activePos, headDir);
-        } else {
+        }
+        if (<Number>keepDir == 0) {
+            keepDir = TOP;
+        }
+        let nextPos = pos;
+        if (headCreep.pos.getRangeTo(pos) > 0 || headMoveRecord) {
+            nextPos = headMoveRecord.activePos;
+        }
+        if (!nextPos) {
+            nextPos = pos;
+        }
+        this.setCreepTargetPos(nextPos, keepDir);
+        if (!allInPos && !this.memory.headBlocked && headMoveRecord) {
             console.log("wait for other creep")
-            this.memory.moveRecord[headCreep.name] = null;
+            // headMoveRecord.disabled = true;
         }
-        for (let creepName of this.memory.creepNameList) {
-            if (creepName == headCreep.name) {
-                continue;
-            }
-            let creep = Game.creeps[creepName];
-            if (!creep) {
-                continue;
-            }
-            this.reverseMove(creep);
-        }
+        this.memory.headBlocked = false;
+        // this.memory.creepNameList.forEach(creepName => {
+        //     if (creepName == headCreep.name) {
+        //         return;
+        //     }
+        //     let creep = Game.creeps[creepName];
+        //     this.reverseMove(creep);
+        // })
+        console.log(`set reverseMoveAsOne ${headCreep.name} ${JSON.stringify(this.memory.moveRecord[headCreep.name])} ${allInPos}`)
         this.moveAll();
     }
 
     protected reverseMove(creep: Creep): void {
         let toPos = creep.memory.expand.targetPos;
         if (!toPos) {
+            creep.memory.expand.expandMove = null;
             return;
         }
         toPos = new RoomPosition(toPos.x, toPos.y, toPos.roomName);
@@ -402,21 +479,10 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         if (!creepMoveMemory) {
             creepMoveMemory = creep.memory.expand.expandMove = {
                 toPos: toPos,
-                path: this.PathFinderPath(creep.pos, toPos, 0),
+                path: this.pathFinderPath(creep.pos, toPos, 0),
                 index: -1,
                 blockTick: 0
             }
-            // 不可达，移动到父级位置
-            // if (creepMoveMemory.path.incomplete) {
-            //     let parentName = creep.memory.expand.parentName;
-            //     if (parentName) {
-            //         let parentCreep = Game.creeps[parentName];
-            //         if (parentCreep) {
-            //             let parentPos = parentCreep.pos;
-            //             creepMoveMemory.path = this.PathFinderPath(creep.pos, parentPos, 0);
-            //         }
-            //     }
-            // }
         }
         try {
             let path = creepMoveMemory.path.path;
@@ -428,19 +494,6 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             } else {
                 //last tick failed
                 creepMoveMemory.blockTick++;
-                if (creepMoveMemory.blockTick > 1) {
-                    nextPos = new RoomPosition(nextPos.x, nextPos.y, creep.room.name);
-                    let groupBlock = false;
-                    nextPos.lookFor(LOOK_CREEPS).forEach(c => {
-                        if (c.memory.module == this.name) {
-                            creep.memory.expand.targetPos = creep.pos;
-                            groupBlock = true;
-                        }
-                    });
-                    if (groupBlock) {
-                        return;
-                    }
-                }
                 if (creepMoveMemory.blockTick > 5) {
                     console.log("move block" + creep.name + JSON.stringify(creepMoveMemory))
                     creep.memory.expand.expandMove = null;
@@ -463,20 +516,17 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                         if (!this.memory.moveRecord[c.name]) {
                             this.memory.moveRecord[c.name] = {}
                         }
-                        //运行中无权干涉父级移动
-                        // if (this.memory.state == "run" && c.name == creep.memory.expand.parentName) {
-                        //     return;
-                        // }
                         this.memory.moveRecord[c.name].passiveDir = getReverseDir(nextDir);
                     }
                 });
             }
-            if (creep.pos.getRangeTo(nextPos.x, nextPos.y) > 1) {
-                console.log("error nextStep more than 1 range </br>" + JSON.stringify(creepMoveMemory) + "</br>"
-                    + JSON.stringify(nextPos) + "</<br>" + creep.name);
-                creep.memory.expand.expandMove = null;
-                return;
-            }
+            //下一个位置已经被占用
+            // let nextPosKey = `${nextPos.x}_${nextPos.y}_${nextPos.roomName}`;
+            // if (this.memory.nextPosMap[nextPosKey]) {
+            //     creep.memory.expand.expandMove = null;
+            //     return;
+            // }
+            // this.memory.nextPosMap[nextPosKey] = creep.name;
             let nextDir = creep.pos.getDirectionTo(nextPos.x, nextPos.y);
             if (!this.memory.moveRecord[creep.name]) {
                 this.memory.moveRecord[creep.name] = {}
@@ -502,6 +552,9 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             if (!record) {
                 continue;
             }
+            if (record.disabled) {
+                continue;
+            }
             console.log(`moveAll ${creepName} ${JSON.stringify(record)}`)
             if (record.activeDir) {
                 creep.move(record.activeDir);
@@ -521,24 +574,32 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         this.memory.moveRecord = {};
     }
 
+    protected checkAlreadyInPos(): boolean {
+        for (let name of this.memory.creepNameList) {
+            let creep = Game.creeps[name];
+            let creepMemory = creep.memory.expand;
+            if (!creepMemory.targetPos) {
+                continue;
+            }
+            if (creep.pos.getRangeTo(creepMemory.targetPos) > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private setCreepTargetPos(pos: RoomPosition, headDir: DirectionConstant): boolean {
         console.log("in setCreepTargetPos");
-        let headPos = this.expandSpawnConfig.headPos;
-        let headShapePosKey = `${headPos.x}_${headPos.y}`;
-        let headName = this.memory.nameShape[headShapePosKey];
-        let allInPos = false;
-        if (!headName) {
-            return allInPos;
-        }
+        let allInPos = false
+        let headName = this.memory.headName;
         let headCreep = Game.creeps[headName];
         if (!headCreep) {
             return allInPos;
         }
         console.log("setCreepTargetPos" + headName)
-        let queue = [];
-        let setPos = {};
+        let queue: SetPosItem[] = [];
         queue.push({
-            parentName: null,
+            parentCreep: null,
             name: headName,
             dir: null,
             pos: pos
@@ -546,99 +607,73 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         let idx = 0;
         let handledMap = {};
         let placedPosMap = {};
-        let oldPosMap = {};
         allInPos = true;
         while (idx < queue.length) {
             let curNode = queue[idx];
-            console.log(`curNode ${idx}, ${queue.length}, ${JSON.stringify(curNode)}`)
             idx++;
             if (handledMap[curNode.name]) {
                 continue;
             }
             handledMap[curNode.name] = true;
+            console.log(`curNode ${idx}, ${queue.length}, ${JSON.stringify(curNode)}`)
             let curPos = curNode.pos;
             let curDir = curNode.dir;
             let curCreep = Game.creeps[curNode.name];
             let curMemory = curCreep.memory.expand;
+            curMemory.targetPos = curCreep.pos;
             if (curDir == null) {
-                oldPosMap[curNode.name] = Game.creeps[curNode.name].pos;
                 curMemory.targetPos = curPos;
-                let posKey = `${curPos.x}_${curPos.y}`;
-                placedPosMap[posKey] = true;
             } else {
                 let targetDir = (headDir - TOP + curDir + 7) % 8 + 1;
+                console.log(JSON.stringify(curPos))
+                console.log(`${headDir} ${targetDir}`)
                 let targetX = curPos.x + directionBiasMap[targetDir].x;
                 let targetY = curPos.y + directionBiasMap[targetDir].y;
+                let targetPos = getStandPos(targetX, targetY, curPos.roomName)
                 console.log(`set ${curNode.name} ${targetDir} ${targetX} ${targetY}`)
-                let xRoomBias = 0;
-                let yRoomBias = 0;
-                if (targetX < 0) {
-                    xRoomBias = -1;
-                    targetX = 49;
-                }
-                if (targetX > 49) {
-                    xRoomBias = 1;
-                    targetX = 0;
-                }
-                if (targetY < 0) {
-                    yRoomBias = -1;
-                    targetY = 49;
-                }
-                if (targetY > 49) {
-                    yRoomBias = 1;
-                    targetY = 0;
-                }
-                let targetRoomName = getDirRoom(curPos.roomName, xRoomBias, yRoomBias);
-                let targetPos = new RoomPosition(targetX, targetY, targetRoomName);
-
-
-                let isWalkable = true;
-                let room = Game.rooms[targetRoomName];
-                if (room) {
-                    let terrain = room.getTerrain();
-                    if (terrain.get(targetPos.x, targetPos.y) == TERRAIN_MASK_WALL) {
-                        isWalkable = false;
-                    }
-                    if (isWalkable) {
-                        room.find(FIND_STRUCTURES).forEach(function (struct) {
-                            if (!isWalkable) {
-                                return;
-                            }
-                            if (struct.pos.x != targetPos.x || struct.pos.y != targetPos.y) {
-                                return;
-                            }
-                            if (struct.structureType !== STRUCTURE_CONTAINER &&
-                                (struct.structureType !== STRUCTURE_RAMPART ||
-                                    !struct.my)) {
-                                isWalkable = false;
-                            }
-                        });
-                    }
-                }
-                oldPosMap[curNode.name] = curMemory.targetPos;
-                if (isWalkable) {
-                    targetPos = new RoomPosition(targetX, targetY, targetRoomName);
-                    curMemory.targetPos = targetPos;
-                } else {
-                    //不可达，移动到父级位置
-                    if (oldPosMap[curNode.parentName]) {
-                        curMemory.targetPos = oldPosMap[curNode.parentName];
-                        delete oldPosMap[curNode.parentName];
-                    }
-                }
-                curMemory.parentName = curNode.parentName;
-                if(curMemory.targetPos){
-                    let posKey = `${curMemory.targetPos.x}_${curMemory.targetPos.y}`;
-                    if(placedPosMap[posKey]){
-                        curMemory.targetPos = curCreep.pos;
-                    }else{
-                        placedPosMap[posKey] = true;
-                    }
-                }
-
-                // console.log(`set ${curNode.name} ${JSON.stringify(curMemory.targetPos)}`)
+                curMemory.targetPos = targetPos;
+                // let isWalkable = checkPosWalkable(targetPos);
+                // if (isWalkable) {
+                //     curMemory.targetPos = targetPos;
+                // } else {
+                //     //不可达，移动到父级位置
+                //     if (curNode.parentCreep) {
+                //         curMemory.targetPos = curNode.parentCreep.pos;
+                //     }
+                // }
             }
-            if (curCreep.pos.getRangeTo(curMemory.targetPos) > 0) {
+            this.reverseMove(curCreep);
+            // let posKey = `${curMemory.targetPos.x}_${curMemory.targetPos.y}`;
+            // if (placedPosMap[posKey]) {
+            //     curMemory.targetPos = curCreep.pos;
+            //     posKey = `${curMemory.targetPos.x}_${curMemory.targetPos.y}`;
+            // }
+            // this.reverseMove(curCreep);
+            // let posChanged = false;
+            // if (curMemory.expandMove && curMemory.expandMove.path.incomplete) {
+            //     posChanged = true;
+            //     curMemory.targetPos = curCreep.pos;
+            //     posKey = `${curMemory.targetPos.x}_${curMemory.targetPos.y}`;
+            // }
+            // if (posChanged) {
+            //     this.reverseMove(curCreep);
+            // }
+            if (curMemory.expandMove) {
+                let size = curMemory.expandMove.path.path.length;
+                curMemory.expandMove.path.path.forEach((p, idx) => {
+                    // if(idx == size - 1){
+                    //     return;
+                    // }
+                    p = new RoomPosition(p.x, p.y, p.roomName);
+                    if (p.getRangeTo(headCreep.pos) == 0) {
+                        this.memory.headBlocked = true;
+                    }
+                });
+            }
+
+            // placedPosMap[posKey] = true;
+            if (curCreep.pos.getRangeTo(curMemory.targetPos) > 0
+                && curCreep.name != headName) {
                 allInPos = false;
             }
             for (let dir in directionBiasMap) {
@@ -646,18 +681,28 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                 let shapeY = curMemory.shapeY + directionBiasMap[dir].y;
                 let shapePosKey = `${shapeX}_${shapeY}`;
                 let dirCreepName = this.memory.nameShape[shapePosKey];
-                console.log(`check ${shapePosKey} ${dirCreepName}`)
                 if (!dirCreepName) {
                     continue;
                 }
                 queue.push({
-                    parentName: curNode.name,
+                    parentCreep: curCreep,
                     name: dirCreepName,
-                    dir: Number(dir),
+                    dir: <DirectionConstant>Number(dir),
                     pos: curMemory.targetPos
                 })
             }
         }
+        //处理掉队的creep
+        // for (let creepName of this.memory.creepNameList) {
+        //     console.log(`loss creep ${creepName}`)
+        //     if (handledMap[creepName]) {
+        //         continue;
+        //     }
+        //     let creep = Game.creeps[creepName];
+        //     let creepMemory = creep.memory.expand;
+        //     creepMemory.targetPos = headCreep.pos;
+        //     allInPos = false;
+        // }
         return allInPos;
     }
 
@@ -673,11 +718,18 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             }
             if (creepMemory.expandMove && creepMemory.expandMove.path) {
                 let path = creepMemory.expandMove.path.path;
-                new RoomVisual(creep.room.name).poly(path.map(p => [p.x, p.y]))
+                let pathWithStart = [creep.pos].concat(path);
+                new RoomVisual(creep.room.name).poly(pathWithStart.map(p => [p.x, p.y]))
             }
             if (creepMemory.targetPos) {
                 new RoomVisual(creepMemory.targetPos.roomName)
                     .text(creepMemory.role, creepMemory.targetPos.x, creepMemory.targetPos.y)
+                new RoomVisual(creep.room.name)
+                    .text(`${creepMemory.targetPos.x}_${creepMemory.targetPos.y}`, creep.pos.x, creep.pos.y,
+                        {
+                            color: 'blue',
+                            font: 0.5
+                        });
             }
         }
     }
