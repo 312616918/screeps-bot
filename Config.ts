@@ -53,6 +53,8 @@ type RoomConfig = {
     },
     upgrade: {
         partNum: number;
+        carryNum?: number;
+        moveNum?: number;
         workPosList: InnerPosition[];
     }
 }
@@ -68,7 +70,7 @@ export const roomConfigMap: {
     [RoomName.W2N18]: {
         carry: {
             partNum: 2,
-            carryNum: 8,
+            carryNum: 4,
         },
         harvest: {
             workPosList: [{
@@ -80,7 +82,9 @@ export const roomConfigMap: {
             }]
         },
         upgrade: {
-            partNum: 8,
+            partNum: 16,
+            carryNum: 6,
+            moveNum: 4,
             workPosList: [{
                 x: 14,
                 y: 12,
@@ -211,5 +215,39 @@ export const roomConfigMap: {
                 y: 21,
             }]
         }
+    }
+}
+
+
+export type TerminalConfig = {
+    maxStorageEnergy: number;
+    type: "input" | "output";
+}
+export const terminalConfigMap: {
+    [roomName in RoomName]: TerminalConfig;
+}={
+    [RoomName.W2N18]:{
+        maxStorageEnergy: -1,
+        type: "input"
+    },
+    [RoomName.W3N18]:{
+        maxStorageEnergy: 200000,
+        type: "output"
+    },
+    [RoomName.W2N19]:{
+        maxStorageEnergy: 200000,
+        type: "output"
+    },
+    [RoomName.W1N19]:{
+        maxStorageEnergy: 200000,
+        type: "output"
+    },
+    [RoomName.W4N21]:{
+        maxStorageEnergy: 200000,
+        type: "output"
+    },
+    [RoomName.W2N22]:{
+        maxStorageEnergy: 200000,
+        type: "output"
     }
 }

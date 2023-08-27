@@ -1,6 +1,7 @@
 import {RoomController} from "./RoomController";
 import {RoomName} from "./Config";
 import {ExpandController} from "./ExpandController";
+import {CenterController} from "./CenterController";
 
 
 const profiler = require('screeps-profiler');
@@ -9,66 +10,8 @@ const profiler = require('screeps-profiler');
 profiler.enable();
 module.exports.loop = function () {
     profiler.wrap(function () {
-        main();
+        let controller = new CenterController();
+        controller.run();
     });
 }
 
-
-function runRoom(roomName: RoomName) {
-    let roomMemory = Memory.roomData[roomName];
-    if (!roomMemory) {
-        // @ts-ignore
-        roomMemory = {};
-        Memory.roomData[roomName] = roomMemory;
-    }
-    let roomController = new RoomController(roomName, roomMemory);
-    roomController.run();
-}
-
-function main() {
-    console.log("tick:" + Game.time);
-
-    for (let r in RoomName) {
-        try {
-            runRoom(RoomName[r]);
-        } catch (e) {
-            console.log("room error:" + RoomName[r])
-            console.log(e.stack);
-        }
-    }
-
-    try {
-        if (!Memory.expand) {
-            Memory.expand = {}
-        }
-        let expandController = new ExpandController(Memory.expand);
-        expandController.run();
-    } catch (e) {
-        console.log(e.stack);
-    }
-
-    let bucket = Game.cpu.bucket;
-    console.log("[CPU]:" + Game.cpu.getUsed().toFixed(2) + "  [BUCKET]:" + bucket)
-
-    if (Game.time % 10 == 0) {
-        if (!Memory.status) {
-            Memory.status = {
-                bucketTime: Game.time
-            }
-        }
-
-        if (bucket >= 10000 && Game.time - Memory.status.bucketTime >= 10) {
-            Game.cpu.generatePixel();
-        }
-        Memory.status.bucketTime = Game.time;
-    }
-
-    if(Game.time % 10000 == 0){
-        for(let name in Memory.creeps){
-            if(!Game.creeps[name]){
-                console.log(`delete creep ${name}`)
-                delete Memory.creeps[name];
-            }
-        }
-    }
-}

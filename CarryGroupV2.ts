@@ -141,6 +141,18 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         if (creep.store.getUsedCapacity(step.resourceType) > 0) {
             stepRecord.stage = "input";
         }
+        let fromObj = Game.getObjectById<ObjectWithPos>(step.fromObjId);
+        let toObj = Game.getObjectById<ObjectWithPos>(step.toObjId);
+        if (fromObj && toObj && toObj instanceof Creep && fromObj instanceof Structure) {
+            let distance = fromObj.pos.getRangeTo(toObj.pos);
+            if (distance <= 1) {
+                toObj.withdraw(fromObj, step.resourceType);
+                this.finishStep(creepMemory, 0);
+                console.log(`self ${creep.name} ${step.resourceType} ${step.amount}`)
+                return;
+            }
+        }
+
         switch (stepRecord.stage) {
             case "output":
                 let target = Game.getObjectById<ObjectWithPos>(step.fromObjId);
@@ -197,7 +209,16 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         if (step.amount < 0) {
             step.amount = 0;
         }
+        if (step.amount == 0) {
+            delete this.memory.stepMap[record.stepId];
+        }
         for (let taskId of step.taskIdList) {
+            let task = this.memory.taskMap[taskId];
+            if (!task) {
+                continue;
+            }
+            task.reserved -= reserved;
+            task.amount -= reserved;
             if (step.amount == 0) {
                 let stepIdList = this.memory.storageStepMap[step.resourceType];
                 if (stepIdList) {
@@ -716,7 +737,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 continue;
             }
         }
-        if(taskArgList.length == 0){
+        if (taskArgList.length == 0) {
             return taskId;
         }
 
@@ -741,20 +762,24 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 let link = Game.getObjectById<StructureLink>(finalArg.objId);
                 if (carryType == "input") {
                     this.handleLink(link, "input")
-                    this.addStep(link, obj, resourceType, amount, true)
+                    let step = this.addStep(link, obj, resourceType, amount, true)
+                    step.taskIdList = [taskId];
                 }
                 if (carryType == "output" || carryType == "pickup") {
                     this.handleLink(link, "output")
-                    this.addStep(obj, link, resourceType, amount, true)
+                    let step = this.addStep(obj, link, resourceType, amount, true)
+                    step.taskIdList = [taskId];
                 }
                 return taskId;
             }
             if (finalArg.objId == storage.id) {
                 if (carryType == "input") {
-                    this.addStep(storage, obj, resourceType, amount, true);
+                    let step = this.addStep(storage, obj, resourceType, amount, true);
+                    step.taskIdList = [taskId];
                 }
                 if (carryType == "output" || carryType == "pickup") {
-                    this.addStep(obj, storage, resourceType, amount, true);
+                    let step = this.addStep(storage, obj, resourceType, amount, true);
+                    step.taskIdList = [taskId];
                 }
                 return taskId;
             }

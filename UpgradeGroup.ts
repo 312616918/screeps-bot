@@ -16,22 +16,24 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
 
     protected getSpawnConfigList(): SpawnConfig[] {
         let config = roomConfigMap[this.roomName].upgrade;
-        let partNum = config.partNum;
+        let workNum = config.partNum;
+        let carryNum = config.carryNum || 2;
+        let moveNum = config.moveNum || 2;
+
         if (this.roomFacility.isInLowEnergy()) {
-            partNum = Math.min(partNum, 2);
+            workNum = Math.min(workNum, 2);
+            carryNum = Math.min(carryNum, 1);
+            moveNum = Math.min(moveNum, 1);
         }
         let body: BodyPartConstant[] = [];
-        for (let i = 0; i < partNum; i++) {
+        for (let i = 0; i < workNum; i++) {
             body.push(WORK);
         }
-        body.push(CARRY);
-        body.push(MOVE);
-        if (!this.roomFacility.isInLowEnergy()) {
-            let cost = this.countBodyCost(body);
-            let availableEnergy = this.roomFacility.getCapacityEnergy();
-            if (availableEnergy - cost >= 50) {
-                body.push(CARRY);
-            }
+        for (let i = 0; i < carryNum; i++) {
+            body.push(CARRY);
+        }
+        for (let i = 0; i < moveNum; i++) {
+            body.push(MOVE);
         }
 
         let spawnConfigList: SpawnConfig[] = [];
@@ -81,13 +83,13 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
                 return;
             }
             let inputObj = Game.getObjectById<StructureStorage>(creep.memory.upgrade.inputObjId);
-            if (inputObj) {
+            if (inputObj && inputObj.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                 creep.withdraw(inputObj, RESOURCE_ENERGY);
                 return;
             }
         }
-
-        if (creep.store.getUsedCapacity() < 20) {
+        let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
+        if (leftRate < 0.2) {
             this.roomFacility.submitEvent({
                 type: "needCarry",
                 subType: "input",

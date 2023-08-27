@@ -3,7 +3,7 @@ import {Move, MoveMemory} from "./move";
 import {UpgradeGroup, UpgradeMemory} from "./UpgradeGroup";
 import {HarvestGroup, HarvestMemory} from "./HarvestGroup";
 import {RoomFacility, RoomFacilityMemory} from "./RoomFacility";
-import {RoomName} from "./Config";
+import {RoomName, TerminalConfig, terminalConfigMap} from "./Config";
 import {BuilderGroup, BuildMemory} from "./BuilderGroup";
 import {ClaimGroup} from "./ClaimGroup";
 import {GroupMemory} from "./BaseGroup";
@@ -257,4 +257,11 @@ export class RoomController {
         }
     }
 
+    public getRoomName():RoomName{
+        return this.roomName;
+    }
+
+    public getRoomFacility(): RoomFacility {
+        return this.roomFacility;
+    }
 }

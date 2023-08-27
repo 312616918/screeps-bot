@@ -75,6 +75,12 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             if (this.roomFacility.getRoom().storage && this.roomFacility.getRoom().storage.pos.getRangeTo(workPos) <= 1) {
                 creep.memory.harvest.transferObjId = this.roomFacility.getRoom().storage.id;
             }
+            let linkList = this.roomFacility.getLinkList().filter(link => {
+                return link.pos.getRangeTo(workPos) <= 1;
+            });
+            if (linkList.length > 0) {
+                creep.memory.harvest.linkId = linkList[0].id;
+            }
 
             delete creep.memory.harvest["workPos"];
         }
@@ -95,11 +101,21 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                 }
             })
         }
-        if(!hasTransfer && creep.memory.harvest.transferObjId){
+
+        if (!hasTransfer && creep.memory.harvest.linkId) {
+            let link = Game.getObjectById<StructureLink>(creep.memory.harvest.linkId);
+            if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 100
+                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
+                creep.transfer(link, RESOURCE_ENERGY);
+                hasTransfer = true;
+            }
+        }
+
+        if (!hasTransfer && creep.memory.harvest.transferObjId) {
             let transferObj = Game.getObjectById<StructureStorage>(creep.memory.harvest.transferObjId);
-            if(transferObj
+            if (transferObj
                 && transferObj.store.getFreeCapacity(RESOURCE_ENERGY) > 100
-                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease){
+                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
                 creep.transfer(transferObj, RESOURCE_ENERGY);
                 hasTransfer = true;
             }

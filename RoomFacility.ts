@@ -4,7 +4,7 @@ export type EventItem = {
     type: "needCarry";
     subType: "input" | "output" | "pickup";
     objId: string;
-    objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension";
+    objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension" | "terminal";
     resourceType: ResourceConstant;
     amount: number;
 }
@@ -60,6 +60,7 @@ export class RoomFacility {
     private extensionList: StructureExtension[];
     private storage: StructureStorage;
     private linkList: StructureLink[];
+    private terminal: StructureTerminal;
 
 
     public constructor(roomName: RoomName, memory: RoomFacilityMemory) {
@@ -256,6 +257,13 @@ export class RoomFacility {
         result.objId = closestLink.id;
         result.distance = minDistance;
         return result;
+    }
+
+    public getTerminal(): StructureTerminal {
+        if (!this.terminal) {
+            this.terminal = this.room.terminal;
+        }
+        return this.terminal;
     }
 
     public visualize() {
