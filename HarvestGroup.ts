@@ -11,6 +11,7 @@ export type HarvestCreepMemory = {
     workPosition?: RoomPosition;
     transferObjId?: string;
     linkId?: string;
+    containerId?: string;
 }
 
 
@@ -20,6 +21,10 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
 
     protected getSpawnConfigList(): SpawnConfig[] {
         let config = roomConfigMap[this.roomName].harvest;
+        if(this.memory.creepNameList.length==config.workPosList.length){
+            return [];
+        }
+
         let partNum = 5
         if (this.roomFacility.isInLowEnergy()) {
             partNum = Math.min(partNum, 2);
@@ -81,10 +86,35 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             if (linkList.length > 0) {
                 creep.memory.harvest.linkId = linkList[0].id;
             }
+            if (this.roomFacility.getTowerList().length == 0) {
+                let cons = workPos.lookFor(LOOK_STRUCTURES).filter(s => s.structureType == STRUCTURE_CONTAINER);
+                if (cons.length != 0) {
+                    creep.memory.harvest.containerId = cons[0].id;
+                }
+            }
 
             delete creep.memory.harvest["workPos"];
         }
+
+
+        if (creep.memory.harvest.containerId && Game.time % 10 == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <10) {
+            let container = Game.getObjectById<StructureContainer>(creep.memory.harvest.containerId);
+            if (container && container.hits + 200 < container.hitsMax) {
+                creep.repair(container);
+                return;
+            }
+        }
+
+
         creep.harvest(target);
+
+        if(this.roomFacility.getController().level<4 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 10) {
+            let site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+            if (site && site.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(site) <= 3) {
+                creep.build(site);
+                return;
+            }
+        }
 
         let energyIncrease = creep.getActiveBodyparts(WORK) * 2;
         let towerIds = creep.memory.harvest.towerIds;
@@ -101,6 +131,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                 }
             })
         }
+
 
         if (!hasTransfer && creep.memory.harvest.linkId) {
             let link = Game.getObjectById<StructureLink>(creep.memory.harvest.linkId);
@@ -120,6 +151,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                 hasTransfer = true;
             }
         }
+
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {

@@ -4,10 +4,12 @@ import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
 
 export type ClaimCreepMemory = {
     roomName: RoomName;
-    role: "claim" | "build";
+    role: "claim" | "build" | "protect";
     sourceId?: string;
     siteId?: string;
     state?: "harvest" | "build" | "input";
+    attackId?: string;
+    stepIdx?: number;
 };
 
 
@@ -23,7 +25,53 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             case "build":
                 this.runBuild(creep);
                 break;
+            case "protect":
+                this.runProtect(creep);
+                break;
         }
+    }
+
+    protected runWithFlag(creep: Creep): boolean {
+        let creepMemory = creep.memory.claim;
+        // delete creepMemory.stepIdx;
+        if (creepMemory.stepIdx == -1) {
+            return false;
+        }
+        if (creepMemory.stepIdx == undefined) {
+            creepMemory.stepIdx = 0;
+        }
+        let flagName = `${this.roomName}_ claim_pos${creepMemory.stepIdx}`;
+        if (this.roomName == "W7N14") {
+            flagName = flagName.replace("W7N14", "W7N15")
+        }
+        if (this.roomName == "W7N16") {
+            flagName = flagName.replace("W7N16", "W7N15")
+        }
+        let flag = Game.flags[flagName];
+        if (!flag) {
+            flagName = flagName.replace(" ", "");
+            flag = Game.flags[flagName];
+        }
+        console.log(flagName, flag)
+
+        if (!flag) {
+            creepMemory.stepIdx = -1;
+            return false;
+        }
+        if (creep.pos.getRangeTo(flag) > 1) {
+            this.moveNormal(creep, flag.pos, 1);
+            return true;
+        }
+        // let spawns = flag.pos.lookFor(LOOK_STRUCTURES).filter(structure => {
+        //     return structure.structureType == STRUCTURE_SPAWN;
+        // });
+        // if(spawns.length != 0){
+        //     let spawn = <StructureSpawn>spawns[0];
+        //     spawn.renewCreep(creep);
+        //     if(creep.di)
+        // }
+        creepMemory.stepIdx++;
+        return false;
     }
 
     protected runClaim(creep: Creep) {
@@ -33,15 +81,28 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         let creepMemory = creep.memory.claim;
         let targetRoomName = creepMemory.roomName;
         if (creep.room.name != targetRoomName) {
-            this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
+            let runWithFlag = this.runWithFlag(creep);
+            if (!runWithFlag) {
+                this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
+            }
             return;
         }
         if (creep.pos.getRangeTo(creep.room.controller) > 1) {
-            this.moveNormal(creep, creep.room.controller.pos, 1);
+            let runWithFlag = this.runWithFlag(creep);
+            if (!runWithFlag) {
+                this.moveNormal(creep, creep.room.controller.pos, 1);
+            }
+            return;
+        }
+        if (creep.room.controller.my) {
+            creep.suicide();
+            return;
+        }
+        if (creep.room.controller.owner || creep.room.controller.reservation) {
+            creep.attackController(creep.room.controller)
             return;
         }
         creep.claimController(creep.room.controller);
-        creep.suicide();
     }
 
     protected runBuild(creep: Creep) {
@@ -51,7 +112,10 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         let creepMemory = creep.memory.claim;
         let targetRoomName = creepMemory.roomName;
         if (creep.room.name != targetRoomName) {
-            this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
+            let runWithFlag = this.runWithFlag(creep);
+            if (!runWithFlag) {
+                this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
+            }
             return;
         }
         if (creepMemory.state == "build") {
@@ -71,7 +135,8 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
                 creepMemory.siteId = site.id;
             }
             if (creep.pos.getRangeTo(site) > 3) {
-                this.moveNormal(creep, site.pos, 3);
+                // this.moveNormal(creep, site.pos, 3);
+                this.move.reserveMove(creep, site.pos, 3)
                 return;
             }
             creep.build(site);
@@ -95,11 +160,51 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         creep.harvest(sources);
     }
 
+    protected runProtect(creep: Creep) {
+        if (!this.roomFacility.roomIsMine() || this.roomFacility.getSpawnList().length != 0) {
+            return;
+        }
+        let creepMemory = creep.memory.claim;
+        let targetRoomName = creepMemory.roomName;
+        if (creep.room.name != targetRoomName) {
+            this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
+            return;
+        }
+        let enemyCreep = Game.getObjectById<Creep>(creepMemory.attackId);
+        if (!enemyCreep || Game.time % 10 == 0) {
+            enemyCreep = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+        }
+        if (!enemyCreep) {
+            return;
+        }
+        creepMemory.attackId = enemyCreep.id;
+        if (creep.pos.getRangeTo(enemyCreep) > 3) {
+            this.moveNormal(creep, enemyCreep.pos, 3);
+            return;
+        }
+        creep.rangedAttack(enemyCreep);
+        creep.heal(creep);
+    }
 
     protected getSpawnConfigList(): SpawnConfig[] {
+        // if (this.roomFacility.roomIsMine() && this.roomFacility.getController().level > 1) {
+        //     return [{
+        //         spawnRoomName: RoomName.W3N18,
+        //         body: [MOVE, MOVE, RANGED_ATTACK, HEAL],
+        //         memory: {
+        //             module: this.moduleName,
+        //             claim: {
+        //                 roomName: this.roomName,
+        //                 role: "protect"
+        //             }
+        //         },
+        //         num: 1
+        //     }]
+        // }
+
         if (!this.roomFacility.roomIsMine()) {
             return [{
-                spawnRoomName: RoomName.W2N18,
+                spawnRoomName: RoomName.W7N16,
                 body: [CLAIM, MOVE],
                 memory: {
                     module: this.moduleName,
@@ -115,10 +220,10 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             return;
         }
         return [{
-            spawnRoomName: RoomName.W2N18,
-            body: [WORK, WORK, WORK, WORK, WORK,
+            spawnRoomName: RoomName.W7N16,
+            body: [WORK, WORK, WORK, WORK,
                 CARRY,
-                MOVE, MOVE, MOVE, MOVE, MOVE],
+                MOVE, MOVE, MOVE, MOVE],
             memory: {
                 module: this.moduleName,
                 claim: {

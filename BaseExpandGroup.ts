@@ -26,7 +26,6 @@ export type ExpandGroupMemory = {
     curPosMap: {
         [posKey: string]: string;
     };
-    headBlocked?: boolean;
 }
 
 export type ExpandGroupCreepMemory = {
@@ -34,6 +33,7 @@ export type ExpandGroupCreepMemory = {
     shapeX?: number;
     shapeY?: number;
     targetPos?: RoomPosition;
+    planTargetPos?: boolean;
     parentName?: string;
     expandMove?: {
         toPos: RoomPosition;
@@ -402,6 +402,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         // console.log(`reverseMoveAsOne ${this.memory.headName} ${JSON.stringify(pos)} ${headCreep.pos.getRangeTo(pos)}`);
         //验证是否全部可达就位
         let allInPos = true;
+        let hasNotPlanPos = false;
         for (let creepName of this.memory.creepNameList) {
             let creep = Game.creeps[creepName];
             let creepMemory = creep.memory.expand;
@@ -415,7 +416,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             }
             console.log(`not in pos ${creepName} ${JSON.stringify(targetPos)} ${creep.pos.getRangeTo(targetPos)}`)
             allInPos = false;
-            break;
+            hasNotPlanPos ||= !creepMemory.planTargetPos;
         }
         let headCreepMemory = headCreep.memory.expand;
         headCreepMemory.targetPos = pos;
@@ -437,18 +438,10 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             nextPos = pos;
         }
         this.setCreepTargetPos(nextPos, keepDir);
-        if (!allInPos && !this.memory.headBlocked && headMoveRecord) {
+        if (!allInPos && !hasNotPlanPos && headMoveRecord) {
             console.log("wait for other creep")
             // headMoveRecord.disabled = true;
         }
-        this.memory.headBlocked = false;
-        // this.memory.creepNameList.forEach(creepName => {
-        //     if (creepName == headCreep.name) {
-        //         return;
-        //     }
-        //     let creep = Game.creeps[creepName];
-        //     this.reverseMove(creep);
-        // })
         console.log(`set reverseMoveAsOne ${headCreep.name} ${JSON.stringify(this.memory.moveRecord[headCreep.name])} ${allInPos}`)
         this.moveAll();
     }
@@ -619,10 +612,14 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             let curPos = curNode.pos;
             let curDir = curNode.dir;
             let curCreep = Game.creeps[curNode.name];
+            if (!curCreep) {
+                continue;
+            }
             let curMemory = curCreep.memory.expand;
             curMemory.targetPos = curCreep.pos;
             if (curDir == null) {
                 curMemory.targetPos = curPos;
+                curMemory.planTargetPos = true;
             } else {
                 let targetDir = (headDir - TOP + curDir + 7) % 8 + 1;
                 console.log(JSON.stringify(curPos))
@@ -632,6 +629,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                 let targetPos = getStandPos(targetX, targetY, curPos.roomName)
                 console.log(`set ${curNode.name} ${targetDir} ${targetX} ${targetY}`)
                 curMemory.targetPos = targetPos;
+                curMemory.planTargetPos = checkPosWalkable(targetPos);
                 // let isWalkable = checkPosWalkable(targetPos);
                 // if (isWalkable) {
                 //     curMemory.targetPos = targetPos;
@@ -658,18 +656,18 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             // if (posChanged) {
             //     this.reverseMove(curCreep);
             // }
-            if (curMemory.expandMove) {
-                let size = curMemory.expandMove.path.path.length;
-                curMemory.expandMove.path.path.forEach((p, idx) => {
-                    // if(idx == size - 1){
-                    //     return;
-                    // }
-                    p = new RoomPosition(p.x, p.y, p.roomName);
-                    if (p.getRangeTo(headCreep.pos) == 0) {
-                        this.memory.headBlocked = true;
-                    }
-                });
-            }
+            // if (curMemory.expandMove) {
+            //     let size = curMemory.expandMove.path.path.length;
+            //     curMemory.expandMove.path.path.forEach((p, idx) => {
+            //         // if(idx == size - 1){
+            //         //     return;
+            //         // }
+            //         p = new RoomPosition(p.x, p.y, p.roomName);
+            //         if (p.getRangeTo(headCreep.pos) == 0) {
+            //             this.memory.headBlocked = true;
+            //         }
+            //     });
+            // }
 
             // placedPosMap[posKey] = true;
             if (curCreep.pos.getRangeTo(curMemory.targetPos) > 0

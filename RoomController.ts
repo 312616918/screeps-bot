@@ -43,14 +43,15 @@ export class RoomController {
         this.initMemory();
 
         this.roomFacility = new RoomFacility(this.roomName, this.roomMemory.facility);
+        this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
 
         //未就绪房间
         if (this.roomFacility.getSpawnList().length == 0) {
+            console.log(`room ${this.roomName} not ready`)
             this.claimGroup = new ClaimGroup(this.move, this.roomMemory.claim, this.roomFacility);
             return;
         }
 
-        this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
         this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility);
         this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility);
         if (this.roomName == "W2N22" || this.roomName == "W3N18") {
@@ -64,6 +65,7 @@ export class RoomController {
     public run() {
         if (this.claimGroup) {
             this.claimGroup.run();
+            this.move.moveAll();
             return;
         }
 
@@ -87,6 +89,7 @@ export class RoomController {
         this.move.moveAll();
         this.move.cleanCache();
         this.roomFacility.visualize();
+        this.roomFacility.clearIfNecessary();
 
     }
 
@@ -95,6 +98,9 @@ export class RoomController {
         if (drops.length != 0) {
             for (let drop of drops) {
                 if (drop.amount < 10) {
+                    continue;
+                }
+                if (this.roomFacility.getSourceContainerList().length != 0 && drop.amount < 100) {
                     continue;
                 }
                 this.roomFacility.submitEvent({
@@ -257,7 +263,7 @@ export class RoomController {
         }
     }
 
-    public getRoomName():RoomName{
+    public getRoomName(): RoomName {
         return this.roomName;
     }
 

@@ -295,11 +295,11 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 if (!step) {
                     continue;
                 }
-                let fromObj = Game.getObjectById<ObjectWithPos>(step.fromObjId);
+                // let fromObj = Game.getObjectById<ObjectWithPos>(step.fromObjId);
                 let toObj = Game.getObjectById<ObjectWithPos>(step.toObjId);
-                if (fromObj) {
-                    posList.push(fromObj.pos);
-                }
+                // if (fromObj) {
+                //     posList.push(fromObj.pos);
+                // }
                 if (toObj) {
                     posList.push(toObj.pos);
                 }
@@ -458,47 +458,6 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             freeAmount -= step.amount;
         });
         return freeAmount;
-    }
-
-    private getLinkPair(taskOutPut: CarryTaskV2, taskInput: CarryTaskV2): {
-        outLink: StructureLink,
-        inlink: StructureLink
-    } {
-        if (taskOutPut.resourceType != "energy") {
-            return null;
-        }
-        if (this.roomFacility.getLinkList().length == 0) {
-            return null;
-        }
-        let outLinkRcord = this.roomFacility.getClosestLink(taskOutPut.objId);
-        let inLinkRecord = this.roomFacility.getClosestLink(taskInput.objId);
-        if (outLinkRcord.distance > 5 || outLinkRcord.distance > 10) {
-            return null;
-        }
-        let outLink = Game.getObjectById<StructureLink>(outLinkRcord.objId);
-        let inLink = Game.getObjectById<StructureLink>(inLinkRecord.objId);
-        if (!outLink || !inLink) {
-            return null;
-        }
-        let midDistance = outLink.pos.findPathTo(inLink.pos, {
-            ignoreCreeps: true
-        }).length;
-        let outObj = Game.getObjectById<ObjectWithPos>(taskOutPut.objId);
-        let inObj = Game.getObjectById<ObjectWithPos>(taskInput.objId);
-        if (!outObj || !inObj) {
-            return null;
-        }
-        let fullDistance = outObj.pos.findPathTo(inLink.pos, {
-            ignoreCreeps: true
-        }).length;
-        let fullLinkDistance = outLinkRcord.distance + inLinkRecord.distance + midDistance;
-        if (fullLinkDistance + 10 > fullLinkDistance) {
-            return null;
-        }
-        return {
-            outLink: outLink,
-            inlink: inLink
-        }
     }
 
     private handleLink(link: StructureLink, type: "input" | "output") {
@@ -778,7 +737,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     step.taskIdList = [taskId];
                 }
                 if (carryType == "output" || carryType == "pickup") {
-                    let step = this.addStep(storage, obj, resourceType, amount, true);
+                    let step = this.addStep(obj, storage, resourceType, amount, true);
                     step.taskIdList = [taskId];
                 }
                 return taskId;
@@ -816,9 +775,12 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     let sendToLink = Game.getObjectById<StructureLink>(status.sendToLinkIdList[0]);
                     if (sendToLink) {
                         link.transferEnergy(sendToLink, 700);
+                        let sendToLinkStatus = this.memory.linkStatusMap[sendToLink.id];
+                        if (sendToLinkStatus) {
+                            sendToLinkStatus.status = "free";
+                        }
                         status.reservedOutput = 0;
                         status.sendToLinkIdList = [];
-                        // status.sendToLinkIdList.splice(0, 1);
                     }
                     status.status = "free";
                     continue;

@@ -12,12 +12,12 @@ type TestExpandGroupCreepMemory = {
 } & ExpandGroupCreepMemory;
 
 
-export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
+export class TestExpandGroup2 extends BaseExpandGroup<TestExpandGroupMemory> {
     protected beforeRecycle(creepMemory: CreepMemory): void {
     }
 
     protected expandSpawnConfig: ExpandSpawnConfig = {
-        name: "test-group",
+        name: "test-group2",
         spawnRoomName: RoomName.W2N18,
         shape: [
             ["*", "x", "s", "x"],
@@ -150,7 +150,7 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
         if (targetStructureList.length > 0) {
             creepMemory.lastAttackObjId = targetStructureList[0].id;
             creep.dismantle(targetStructureList[0]);
-            if (!lastAttackObj||creep.pos.getRangeTo(lastAttackObj) > 3) {
+            if (!lastAttackObj) {
                 creep.rangedAttack(targetStructureList[0]);
             }
             return;

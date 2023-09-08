@@ -7,16 +7,23 @@ export class CenterController {
     public run() {
         let roomControllerList = this.getRoomControllerList();
         for (let roomController of roomControllerList) {
-            try{
+            try {
+                let bucket = Game.cpu.bucket;
+                if (bucket < 1000 && Game.time % 2 == 0) {
+                    let controller = roomController.getRoomFacility().getController();
+                    if (controller && controller.level >= 5) {
+                        continue;
+                    }
+                }
                 roomController.run();
-            }catch (e) {
+            } catch (e) {
                 console.log(`room ${roomController.getRoomName()} error`);
                 console.log(e.stack);
             }
         }
-        this.runExpand();
+        // this.runExpand();
         this.runPixel();
-        this.runTerminal(roomControllerList);
+        // this.runTerminal(roomControllerList);
 
 
         this.deleteDeadCreep();
@@ -83,6 +90,9 @@ export class CenterController {
         let sendInConfig: TerminalConfig;
         roomControllerList.forEach(roomController => {
             let config = terminalConfigMap[roomController.getRoomName()];
+            if (!config) {
+                return;
+            }
             if (config.type == "input") {
                 sendInRoomController = roomController;
                 sendInConfig = config;
@@ -93,8 +103,17 @@ export class CenterController {
             return;
         }
 
+        let sendInTerminal = sendInRoomController.getRoomFacility().getTerminal();
+        let sendInStorage = sendInRoomController.getRoomFacility().getStorage();
+        if (!sendInTerminal || !sendInStorage) {
+            return;
+        }
+
         roomControllerList.forEach(roomController => {
             let config = terminalConfigMap[roomController.getRoomName()];
+            if (!config) {
+                return;
+            }
             if (config.type != "output") {
                 return;
             }
@@ -106,12 +125,13 @@ export class CenterController {
             if (storage.store.getUsedCapacity("energy") <= config.maxStorageEnergy) {
                 return;
             }
-            if (terminal.store.getFreeCapacity("energy") < 10000) {
+            if (terminal.store.getUsedCapacity("energy") >= 50000 && sendInTerminal.store.getFreeCapacity("energy") >= 50000) {
+                let sendAmount = Math.min(terminal.store.getUsedCapacity("energy"), 50000 / 2);
+                let res = terminal.send("energy", sendAmount, sendInRoomController.getRoomName());
+                console.log(`send energy ${sendAmount} ${res}`)
                 return;
             }
-            if (terminal.store.getUsedCapacity("energy") >= 10000) {
-                let sendAmount = Math.min(terminal.store.getUsedCapacity("energy"), 10000);
-                terminal.send("energy", sendAmount, sendInRoomController.getRoomName());
+            if (terminal.store.getFreeCapacity("energy") < 10000) {
                 return;
             }
             roomController.getRoomFacility().submitEvent({
@@ -119,16 +139,11 @@ export class CenterController {
                 subType: "input",
                 resourceType: "energy",
                 objId: terminal.id,
-                amount: 10000,
+                amount: 50000,
                 objType: "terminal"
             })
         })
 
-        let sendInTerminal = sendInRoomController.getRoomFacility().getTerminal();
-        let sendInStorage = sendInRoomController.getRoomFacility().getStorage();
-        if (!sendInTerminal || !sendInStorage) {
-            return;
-        }
         if (sendInTerminal.store.getUsedCapacity("energy") > 1000
             && sendInStorage.store.getFreeCapacity("energy") > 1000) {
             sendInRoomController.getRoomFacility().submitEvent({

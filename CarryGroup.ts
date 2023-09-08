@@ -216,6 +216,9 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
                     continue;
                 }
                 let obj = Game.getObjectById<ObjectWithPos>(task.objId);
+                if (!obj) {
+                    continue;
+                }
                 room.visual.line(lastPos, obj.pos, {
                     color: "red",
                     lineStyle: "dashed"

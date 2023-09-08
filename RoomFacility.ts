@@ -177,7 +177,7 @@ export class RoomFacility {
     }
 
     public getTowerList(): StructureTower[] {
-        if (!this.towerList) {
+        if (!this.towerList && this.room) {
             this.towerList = this.room.find<StructureTower>(FIND_MY_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_TOWER;
@@ -188,7 +188,7 @@ export class RoomFacility {
     }
 
     public getSourceContainerList(): StructureContainer[] {
-        if (!this.sourceContainerList) {
+        if (!this.sourceContainerList && this.room) {
             this.sourceContainerList = this.room.find<StructureContainer>(FIND_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_CONTAINER && s.pos.findInRange(FIND_SOURCES, 1).length > 0;
@@ -199,7 +199,7 @@ export class RoomFacility {
     }
 
     public getExtensionList(): StructureExtension[] {
-        if (!this.extensionList) {
+        if (!this.extensionList && this.room) {
             this.extensionList = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
                 filter: (s) => {
                     return s.structureType == STRUCTURE_EXTENSION;
@@ -210,7 +210,7 @@ export class RoomFacility {
     }
 
     public getStorage(): StructureStorage {
-        if (!this.storage) {
+        if (!this.storage && this.room) {
             this.storage = this.room.storage;
         }
         return this.storage;
@@ -260,7 +260,7 @@ export class RoomFacility {
     }
 
     public getTerminal(): StructureTerminal {
-        if (!this.terminal) {
+        if (!this.terminal && this.room) {
             this.terminal = this.room.terminal;
         }
         return this.terminal;
@@ -271,16 +271,27 @@ export class RoomFacility {
             if (!spawn.spawning) {
                 return;
             }
-            if (spawn.spawning.needTime - spawn.spawning.remainingTime > 3) {
-                return;
-            }
+            let spawnedTime = spawn.spawning.needTime - spawn.spawning.remainingTime;
+            let progress = spawnedTime / spawn.spawning.needTime;
             spawn.room.visual.text(
-                '🛠️' + spawn.spawning.name,
+                `🛠️${spawn.spawning.name} ${spawnedTime}/${spawn.spawning.needTime}= ${Math.floor(progress * 100)}%`,
                 spawn.pos.x + 1,
                 spawn.pos.y, {
                     align: 'left',
-                    opacity: 0.8
+                    opacity: 0.1
                 });
         })
+    }
+
+    public clearIfNecessary() {
+        if (Game.time % 1000 != 0) {
+            return;
+        }
+        for (let key in this.memory.closestLinkMap) {
+            let obj = Game.getObjectById(key);
+            if (!obj) {
+                delete this.memory.closestLinkMap[key];
+            }
+        }
     }
 }

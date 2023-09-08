@@ -9,6 +9,7 @@ export type UpgradeCreepMemory = {
     workPosition: RoomPosition;
     inputObjId?: string;
     linkId?: string;
+    towerIdList?: string[];
 }
 
 export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
@@ -68,15 +69,34 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
                 return;
             }
             let linkRecord = this.roomFacility.getClosestLink(creep.id);
-            if(linkRecord.distance<=1){
+            if (linkRecord.distance <= 1) {
                 creep.memory.upgrade.inputObjId = linkRecord.objId;
             }
             if (this.roomFacility.getRoom().storage && workPos.getRangeTo(this.roomFacility.getRoom().storage) <= 1) {
                 creep.memory.upgrade.inputObjId = this.roomFacility.getRoom().storage.id;
             }
+            if (this.roomFacility.getTowerList().length > 0) {
+                creep.memory.upgrade.towerIdList = this.roomFacility.getTowerList()
+                    .filter(tower => {
+                        return workPos.getRangeTo(tower) <= 1;
+                    })
+                    .map(tower => tower.id);
+            }
             delete creep.memory.upgrade["workPosition"];
         }
         creep.upgradeController(target);
+        if (creep.memory.upgrade.towerIdList && Game.time % 2 == 0) {
+            creep.memory.upgrade.towerIdList.forEach(towerId => {
+                let tower = Game.getObjectById<StructureTower>(towerId);
+                if (!tower) {
+                    return;
+                }
+                if (tower.store.getFreeCapacity(RESOURCE_ENERGY) < 200) {
+                    return;
+                }
+                creep.transfer(tower, RESOURCE_ENERGY);
+            });
+        }
         if (creep.memory.upgrade.inputObjId) {
             let energyCost = creep.getActiveBodyparts(WORK);
             if (creep.store.getUsedCapacity() > energyCost) {
@@ -89,7 +109,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             }
         }
         let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
-        if (leftRate < 0.2) {
+        if (leftRate < 0.5) {
             this.roomFacility.submitEvent({
                 type: "needCarry",
                 subType: "input",
