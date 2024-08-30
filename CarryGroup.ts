@@ -1,5 +1,6 @@
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, GroupMemory} from "./BaseGroup";
 import {roomConfigMap, RoomName} from "./Config";
+import {SpawnConfig} from "./Spawn";
 
 
 /**
@@ -110,7 +111,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
         }
         if (task.carryType == "input") {
             if (creep.store.getUsedCapacity(task.resourceType) == 0) {
-                console.log(`error: ${creepName} carry input but no resource`)
+                this.logInfo(`error: ${creepName} carry input but no resource`)
                 this.finishTask(creepMemory, 0);
                 return;
             }
@@ -259,7 +260,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
 
 
     protected arrange(creep: Creep): void {
-        // console.log("arrange", creep.name)
+        // this.logInfo("arrange", creep.name)
 
         let taskArgList: TaskArg[] = [];
         //1. has resource
@@ -428,7 +429,7 @@ export class CarryGroup extends BaseGroup<CarryMemory> {
         }
         let roomName = <RoomName>obj.pos.roomName;
         if (roomName != this.roomName) {
-            console.log("not in one room" + roomName + "  " + this.roomName)
+            this.logInfo("not in one room" + roomName + "  " + this.roomName)
             return null;
         }
         let taskId = `${obj.id}#${carryType}#${resourceType}`;

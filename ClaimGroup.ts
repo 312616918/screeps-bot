@@ -1,5 +1,6 @@
 import {RoomName} from "./Config";
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, GroupMemory} from "./BaseGroup";
+import {SpawnConfig} from "./Spawn";
 
 
 export type ClaimCreepMemory = {
@@ -40,13 +41,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         if (creepMemory.stepIdx == undefined) {
             creepMemory.stepIdx = 0;
         }
-        let flagName = `${this.roomName}_ claim_pos${creepMemory.stepIdx}`;
-        if (this.roomName == "W7N14") {
-            flagName = flagName.replace("W7N14", "W7N15")
-        }
-        if (this.roomName == "W7N16") {
-            flagName = flagName.replace("W7N16", "W7N15")
-        }
+        let flagName = `${this.roomName}_claim_pos_${creepMemory.stepIdx}`;
         let flag = Game.flags[flagName];
         if (!flag) {
             flagName = flagName.replace(" ", "");
@@ -204,7 +199,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
 
         if (!this.roomFacility.roomIsMine()) {
             return [{
-                spawnRoomName: RoomName.W7N16,
+                spawnRoomName: RoomName.W2N18,
                 body: [CLAIM, MOVE],
                 memory: {
                     module: this.moduleName,
@@ -220,7 +215,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             return;
         }
         return [{
-            spawnRoomName: RoomName.W7N16,
+            spawnRoomName: RoomName.W2N18,
             body: [WORK, WORK, WORK, WORK,
                 CARRY,
                 MOVE, MOVE, MOVE, MOVE],
@@ -231,7 +226,8 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
                     role: "build"
                 }
             },
-            num: 1
+            num: 1,
+            configHash: "build-0"
         }];
     }
 

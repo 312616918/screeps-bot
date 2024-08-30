@@ -10,6 +10,7 @@ import {ExpandGroupCreepMemory} from "./BaseExpandGroup";
 import {ExpandMemory} from "./ExpandController";
 import {ClaimCreepMemory} from "./ClaimGroup";
 import {CarryCreepMemoryV2} from "./CarryGroupV2";
+import {MetricMemory} from "./Metric";
 
 export {}
 
@@ -52,6 +53,8 @@ declare global {
             bucketTime: number;
         },
         expand: ExpandMemory;
+        //监控
+        metric: MetricMemory;
     }
 
     //creep内存分配

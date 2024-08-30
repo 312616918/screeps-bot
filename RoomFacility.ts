@@ -1,4 +1,4 @@
-import {RoomName} from "./Config";
+import {DevConfig, DevLevelConfig, RoomName} from "./Config";
 
 export type EventItem = {
     type: "needCarry";
@@ -30,6 +30,8 @@ export type RoomFacilityMemory = {
 
     eventList: EventItem[];
     lastLowEnergyTime: number;
+    lastEnergy: number;
+    lastEnergyChangedTime: number;
     closestLinkMap: {
         [objId: string]: ClosestRecord;
     }
@@ -61,6 +63,8 @@ export class RoomFacility {
     private storage: StructureStorage;
     private linkList: StructureLink[];
     private terminal: StructureTerminal;
+    private devConfig: DevConfig;
+    private lastDevTick: number;
 
 
     public constructor(roomName: RoomName, memory: RoomFacilityMemory) {
@@ -76,7 +80,38 @@ export class RoomFacility {
                 this.memory.lastLowEnergyTime = Game.time;
                 console.log(`room ${roomName} start low energy`)
             }
+            if (this.room.energyCapacityAvailable != this.room.energyAvailable) {
+                if (this.memory.lastEnergy != this.room.energyAvailable) {
+                    this.memory.lastEnergy = this.room.energyAvailable;
+                    this.memory.lastEnergyChangedTime = Game.time;
+                }
+            }
         }
+    }
+
+    public getDevConfig(): DevConfig {
+        if (this.devConfig && this.lastDevTick && Game.time - this.lastDevTick < 100) {
+            return this.devConfig;
+        }
+        if (!this.roomIsMine()) {
+            return null;
+        }
+
+        let level = this.getController().level;
+        let amount = this.getCapacityEnergy();
+        for (let i = DevLevelConfig.length - 1; i >= 0; i--) {
+            let c = DevLevelConfig[i];
+            if (level < c.minLevel) {
+                continue;
+            }
+            if (amount < c.minEnergy) {
+                continue;
+            }
+            this.devConfig = c;
+            this.lastDevTick = Game.time;
+            return c;
+        }
+        return null;
     }
 
     public getRoom(): Room {
@@ -88,7 +123,15 @@ export class RoomFacility {
     }
 
     public isInLowEnergy(): boolean {
-        return this.memory.lastLowEnergyTime && Game.time - this.memory.lastLowEnergyTime > 400;
+        //超过400周期，能量不超过300
+        if (this.memory.lastLowEnergyTime && Game.time - this.memory.lastLowEnergyTime > 400) {
+            return true;
+        }
+        //超过400周期，能量没有任何变动
+        if (this.memory.lastEnergyChangedTime > 0 && Game.time - this.memory.lastEnergyChangedTime > 400) {
+            return true;
+        }
+        return false;
     }
 
     public getCapacityEnergy(): number {
@@ -253,6 +296,9 @@ export class RoomFacility {
                 minDistance = distance;
                 closestLink = link;
             }
+        }
+        if (!closestLink) {
+            return result;
         }
         result.objId = closestLink.id;
         result.distance = minDistance;

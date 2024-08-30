@@ -1,37 +1,46 @@
-import {RoomName, TerminalConfig, terminalConfigMap} from "./Config";
+import {availableRoomName, RoomName, TerminalConfig, terminalConfigMap} from "./Config";
 import {RoomController} from "./RoomController";
 import {ExpandController} from "./ExpandController";
+import _ = require("lodash");
+import {Metric} from "./Metric";
 
 
 export class CenterController {
     public run() {
         let roomControllerList = this.getRoomControllerList();
-        for (let roomController of roomControllerList) {
+        for (let i = 0; i < roomControllerList.length; i++) {
+            let roomController = roomControllerList[i];
             try {
                 let bucket = Game.cpu.bucket;
-                if (bucket < 1000 && Game.time % 2 == 0) {
-                    let controller = roomController.getRoomFacility().getController();
-                    if (controller && controller.level >= 5) {
-                        continue;
-                    }
+                if (bucket < 100 && i > 3) {
+                    Metric.recordCount(1, "type", "room_stop", "room", roomController.getRoomName())
+                    continue;
                 }
+                let startTimestamp = (new Date()).valueOf();
                 roomController.run();
+                let cost = (new Date()).valueOf() - startTimestamp;
+                Metric.recordGauge(cost, "type", "room_time_cost", "room", roomController.getRoomName());
             } catch (e) {
                 console.log(`room ${roomController.getRoomName()} error`);
                 console.log(e.stack);
             }
         }
+        this.deleteDeadCreep();
         // this.runExpand();
         this.runPixel();
         // this.runTerminal(roomControllerList);
 
 
-        this.deleteDeadCreep();
     }
 
     private getRoomControllerList() {
+
+        if(!Memory.roomData){
+            Memory.roomData = {}
+        }
+
         let roomControllerList: RoomController[] = [];
-        for (let roomName in RoomName) {
+        for (let roomName of availableRoomName) {
             let roomMemory = Memory.roomData[roomName];
             if (!roomMemory) {
                 // @ts-ignore
@@ -41,6 +50,8 @@ export class CenterController {
             let roomController = new RoomController(RoomName[roomName], roomMemory);
             roomControllerList.push(roomController);
         }
+        // shuffle，以免cpu不足，room长期不能执行
+        roomControllerList = _.shuffle(roomControllerList)
         return roomControllerList;
     }
 
@@ -58,7 +69,9 @@ export class CenterController {
 
     private runPixel() {
         let bucket = Game.cpu.bucket;
-        console.log("[CPU]:" + Game.cpu.getUsed().toFixed(2) + "  [BUCKET]:" + bucket)
+        // blue
+        console.log(`<span style="color: #66FFFF;">[REPORT] [${Game.time % 1000}]cpu: ${Game.cpu.getUsed().toFixed(2)} bucket: ${bucket}</span>`)
+        // console.log("[CPU]:" + Game.cpu.getUsed().toFixed(2) + "  [BUCKET]:" + bucket)
 
         if (Game.time % 10 == 0) {
             if (!Memory.status) {

@@ -1,10 +1,12 @@
 import {RoomName} from "./Config";
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, GroupMemory} from "./BaseGroup";
+import {SpawnConfig} from "./Spawn";
 
 
 export type BuildCreepMemory = {
     targetId: string;
     workPos?: RoomPosition;
+    sourceId?: string;
 }
 
 export type BuildMemory = {
@@ -23,13 +25,13 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
             return [];
         }
         let body: BodyPartConstant[] = [];
-        if(this.roomFacility.isInLowEnergy()){
+        if (this.roomFacility.isInLowEnergy()) {
             body = [WORK, CARRY, MOVE];
-        }else{
-            let partNum = (this.roomFacility.getRoom().energyAvailable-100) / 200;
+        } else {
+            let partNum = (this.roomFacility.getRoom().energyAvailable - 100) / 200;
             partNum = Math.floor(partNum);
             partNum = Math.min(4, partNum);
-            if(partNum < 1){
+            if (partNum < 1) {
                 return [];
             }
             for (let i = 0; i < partNum; i++) {
@@ -40,7 +42,7 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
             body.push(MOVE);
             body.push(MOVE);
         }
-        console.log(`room ${this.roomName} build body: ${JSON.stringify(body)}`)
+        this.logInfo(`room ${this.roomName} build body: ${JSON.stringify(body)}`)
         return [{
             body: body,
             memory: {
@@ -63,59 +65,20 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
             }
             target = sites[0];
             creepMemory.targetId = target.id;
+            creepMemory.sourceId = "";
         }
-        // if (!creepMemory.workPos) {
-        //     for (let idx = 0; idx < 9; idx++) {
-        //         let curX = target.pos.x + idx % 3 - 1;
-        //         let curY = target.pos.y + Math.floor(idx / 3) - 1;
-        //         let posKey = `${curX}-${curY}`;
-        //         if (!this.memory.workPosMap) {
-        //             this.memory.workPosMap = {};
-        //         }
-        //         if (this.memory.workPosMap[posKey]) {
-        //             continue;
-        //         }
-        //         let pos = new RoomPosition(curX, curY, target.pos.roomName);
-        //         let blockObj = pos.look().filter(obj => {
-        //             if (obj.type == "structure") {
-        //                 if (obj.structure.structureType == STRUCTURE_ROAD || obj.structure.structureType == STRUCTURE_CONTAINER) {
-        //                     return false;
-        //                 }
-        //                 return true;
-        //             }
-        //             if (obj.type == "terrain") {
-        //                 return obj.terrain == "wall";
-        //             }
-        //             if (obj.type == "creep") {
-        //                 let creep = obj.creep;
-        //                 return creep.memory.module != "carry";
-        //             }
-        //             return false;
-        //         })
-        //         console.log("block obj:" + JSON.stringify(blockObj));
-        //         if (blockObj.length > 0) {
-        //             continue;
-        //         }
-        //         creepMemory.workPos = pos;
-        //         this.memory.workPosMap[posKey] = creep.name;
-        //         break;
-        //     }
-        // }
-        // if (!creepMemory.workPos) {
-        //     console.log(`no work pos ${creep.name}`);
-        //     return;
-        // }
-        // let workPos = new RoomPosition(creepMemory.workPos.x, creepMemory.workPos.y, creepMemory.workPos.roomName);
-        // if (creep.pos.getRangeTo(workPos) != 0) {
-        //     this.move.reserveMove(creep, target.pos, 0);
-        //     return;
-        // }
         if (creep.pos.getRangeTo(target) > 3) {
             this.move.reserveMove(creep, target.pos, 3);
             return;
         }
+        this.setSourceId(creep, creepMemory);
+
         let res = creep.build(target);
         if (creep.store.getFreeCapacity() > 20) {
+            let handled = this.getEnergyFromSource(creep, creepMemory);
+            if (handled) {
+                return;
+            }
             this.roomFacility.submitEvent({
                 type: "needCarry",
                 subType: "input",
@@ -125,6 +88,82 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
                 objType: "builder"
             })
         }
+    }
+
+    private setSourceId(creep: Creep, creepMemory: BuildCreepMemory) {
+        // 20tick，寻找一次
+        if (Game.time % 20 != 0) {
+            return;
+        }
+        if (creepMemory.sourceId) {
+            return;
+        }
+        if (!creepMemory.targetId) {
+            return;
+        }
+        let target = Game.getObjectById<ConstructionSite>(creepMemory.targetId);
+        if (!target) {
+            return;
+        }
+        creepMemory.sourceId = target.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: (structure) => {
+                if (structure.structureType != STRUCTURE_CONTAINER
+                    && structure.structureType != STRUCTURE_LINK
+                    && structure.structureType != STRUCTURE_STORAGE) {
+                    return false;
+                }
+                if (structure.store.getUsedCapacity(RESOURCE_ENERGY) == 0) {
+                    return false;
+                }
+                //距离site小于4
+                return structure.pos.getRangeTo(target) <= 4;
+            }
+        })?.id;
+        if (creepMemory.sourceId) {
+            return;
+        }
+        creepMemory.sourceId = target.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+            filter: (resource) => {
+                if (resource.resourceType != RESOURCE_ENERGY) {
+                    return false;
+                }
+                //距离site小于4
+                return resource.pos.getRangeTo(target) <= 4;
+            }
+        })?.id;
+    }
+
+    private getEnergyFromSource(creep: Creep, creepMemory: BuildCreepMemory): boolean {
+        if (!creepMemory.sourceId) {
+            return false;
+        }
+        //有sourceId，直接就近取
+        let source = Game.getObjectById<Source>(creepMemory.sourceId);
+        if (!source) {
+            creepMemory.sourceId = "";
+            return false;
+        }
+        if (creep.pos.getRangeTo(source) > 1) {
+            this.move.reserveMove(creep, source.pos, 1);
+            return false;
+        }
+        //判断类型
+        if (source instanceof StructureContainer
+            || source instanceof StructureLink
+            || source instanceof StructureStorage) {
+            if (source.store.getUsedCapacity(RESOURCE_ENERGY) == 0) {
+                creepMemory.targetId = "";
+            }
+            creep.withdraw(source, RESOURCE_ENERGY)
+            return true;
+        }
+        if (source instanceof Resource) {
+            creep.pickup(source)
+            return true;
+        }
+        this.logInfo(`error source type: ${source}`)
+        creepMemory.sourceId = ""
+        return false;
     }
 
 

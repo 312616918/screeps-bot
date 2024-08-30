@@ -1,5 +1,8 @@
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, CreepPartConfig, GroupMemory} from "./BaseGroup";
 import {roomConfigMap} from "./Config";
+import {SpawnConfig} from "./Spawn";
+import {Metric} from "./Metric";
+import _ = require("lodash");
 
 export type HarvestMemory = {} & GroupMemory;
 
@@ -19,27 +22,88 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
 
     protected moduleName: string = "harvest";
 
-    protected getSpawnConfigList(): SpawnConfig[] {
-        let config = roomConfigMap[this.roomName].harvest;
-        if(this.memory.creepNameList.length==config.workPosList.length){
-            return [];
+
+    protected beforeRunEach(creepList: Creep[]) {
+        // 监控资源开采
+        let source_list = this.roomFacility.getSourceList();
+        for (let i in source_list) {
+            let amount = source_list[i].energy;
+            Metric.recordGauge(amount, "type", `source_amount_${i}`, "room", this.roomName);
         }
 
-        let partNum = 5
+        //每10000个周期，检查有没有container
+        if (Game.time % 10000 != 0) {
+            return;
+        }
+        let workPosList = roomConfigMap[this.roomName].harvest.workPosList;
+        if (workPosList.length <= this.roomFacility.getSourceContainerList().length) {
+            return;
+        }
+        workPosList.forEach(pos => {
+            let workPos = new RoomPosition(pos.x, pos.y, this.roomName);
+            if (workPos.lookFor(LOOK_STRUCTURES).some(s => s.structureType == STRUCTURE_CONTAINER)) {
+                return;
+            }
+            if (workPos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0) {
+                return;
+            }
+            this.logInfo(`add container to ${workPos}`);
+            this.roomFacility.getRoom().createConstructionSite(workPos, STRUCTURE_CONTAINER);
+        })
+    }
+
+
+    private getPartConfigByAuto(): CreepPartConfig {
         if (this.roomFacility.isInLowEnergy()) {
-            partNum = Math.min(partNum, 2);
-        } else {
-            let availableEnergy = this.roomFacility.getCapacityEnergy();
-            let availablePartNum = Math.floor((availableEnergy - 100) / 100);
-            partNum = Math.min(5, availablePartNum);
-            // console.log(`room:${this.roomName} availableEnergy: ${availableEnergy} availablePartNum: ${availablePartNum} partNum: ${partNum}`)
+            return null;
         }
+        let result: CreepPartConfig = {};
+        let energyAmount = this.roomFacility.getCapacityEnergy();
+        //5 work
+        if (energyAmount >= 5 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 5;
+            result.carryNum = 2;
+            result.moveNum = 2;
+        }
+        //10 work
+        if (energyAmount >= 10 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 10;
+            result.carryNum = 2;
+            result.moveNum = 2;
+        }
+        if (!result.workNum) {
+            return null;
+        }
+        return result;
+    }
+
+    private getPartConfigByConfig(): CreepPartConfig {
+        let result: CreepPartConfig = {};
+        let availableEnergy = this.roomFacility.getCapacityEnergy();
+        let availablePartNum = Math.floor((availableEnergy - 100) / 100);
+        result.workNum = Math.min(5, availablePartNum);
+        if (this.roomFacility.isInLowEnergy()) {
+            result.workNum = 2;
+            result.carryNum = 1;
+            result.moveNum = 1;
+        }
+        return result;
+    }
+
+    protected getSpawnConfigList(): SpawnConfig[] {
+        let config = roomConfigMap[this.roomName].harvest;
+        if (this.memory.creepNameList.length == config.workPosList.length) {
+            return [];
+        }
+        let partConfig = this.getPartConfigByAuto();
+        if (!partConfig) {
+            partConfig = this.getPartConfigByConfig();
+        }
+
         let body: BodyPartConstant[] = [];
-        for (let i = 0; i < partNum; i++) {
-            body.push(WORK);
-        }
-        body.push(CARRY);
-        body.push(MOVE);
+        body = body.concat(_.times(partConfig.workNum, () => WORK),
+            _.times(partConfig.carryNum, () => CARRY),
+            _.times(partConfig.moveNum, () => MOVE));
 
         let spawnConfigList: SpawnConfig[] = [];
         config.workPosList.forEach(pos => {
@@ -97,7 +161,8 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         }
 
 
-        if (creep.memory.harvest.containerId && Game.time % 10 == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <10) {
+        // 修理container
+        if (creep.memory.harvest.containerId && Game.time % 10 == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) < 10) {
             let container = Game.getObjectById<StructureContainer>(creep.memory.harvest.containerId);
             if (container && container.hits + 200 < container.hitsMax) {
                 creep.repair(container);
@@ -105,17 +170,12 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             }
         }
 
-
-        creep.harvest(target);
-
-        if(this.roomFacility.getController().level<4 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 10) {
-            let site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
-            if (site && site.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(site) <= 3) {
-                creep.build(site);
-                return;
-            }
+        //采矿，节省cpu
+        if(!target.ticksToRegeneration || target.energy >= target.ticksToRegeneration * 10){
+            creep.harvest(target);
         }
 
+        //填充tower
         let energyIncrease = creep.getActiveBodyparts(WORK) * 2;
         let towerIds = creep.memory.harvest.towerIds;
         let hasTransfer = false;
@@ -132,7 +192,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             })
         }
 
-
+        //填充link
         if (!hasTransfer && creep.memory.harvest.linkId) {
             let link = Game.getObjectById<StructureLink>(creep.memory.harvest.linkId);
             if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 100
@@ -142,6 +202,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             }
         }
 
+        //填充其他
         if (!hasTransfer && creep.memory.harvest.transferObjId) {
             let transferObj = Game.getObjectById<StructureStorage>(creep.memory.harvest.transferObjId);
             if (transferObj

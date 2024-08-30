@@ -1,6 +1,7 @@
 import {roomConfigMap, RoomName} from "./Config";
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, GroupMemory} from "./BaseGroup";
 import * as _ from "lodash";
+import {SpawnConfig} from "./Spawn";
 
 type CarryTaskV2 = {
     id: string;
@@ -83,13 +84,17 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
 
     protected moduleName: string = "carry";
 
-    protected getSpawnConfigList(): SpawnConfig[] {
+
+    protected beforeRunEach(creepList: Creep[]) {
         if (Game.time % 100 == 0) {
             this.memory.taskMap = {}
             this.memory.stepMap = {}
             this.memory.linkStatusMap = {}
             this.memory.storageStepMap = {}
         }
+    }
+
+    private getSpawnListByOld(): SpawnConfig[] {
         let config = roomConfigMap[this.roomName].carry;
         let partNum = config.partNum;
         if (this.roomFacility.isInLowEnergy()) {
@@ -111,6 +116,36 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     }
                 },
                 num: config.carryNum
+            }
+        ];
+    }
+
+    protected getSpawnConfigList(): SpawnConfig[] {
+        let devConfig = this.roomFacility.getDevConfig();
+        if (true) {
+            return this.getSpawnListByOld();
+        }
+
+        let body: BodyPartConstant[] = [];
+        let num = devConfig.carry.autoNum;
+        body = body.concat(
+            _.times(devConfig.carry.carryNum, () => CARRY),
+            _.times(devConfig.carry.moveNum, () => MOVE)
+        );
+        if (this.roomFacility.isInLowEnergy()) {
+            body = [CARRY, CARRY, MOVE]
+            num = 1;
+        }
+        return [
+            {
+                body: body,
+                memory: {
+                    module: this.moduleName,
+                    carry: {
+                        taskRecordList: []
+                    }
+                },
+                num: num
             }
         ];
     }
@@ -148,7 +183,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             if (distance <= 1) {
                 toObj.withdraw(fromObj, step.resourceType);
                 this.finishStep(creepMemory, 0);
-                console.log(`self ${creep.name} ${step.resourceType} ${step.amount}`)
+                this.logInfo(`self ${creep.name} ${step.resourceType} ${step.amount}`)
                 return;
             }
         }
@@ -398,7 +433,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         let capacity = creep.store.getCapacity(stepArg.step.resourceType);
         let amount = 0;
         for (let arg of stepArgList) {
-            console.log(`take step ${arg.step.stepId} ${arg.amount} ${arg.needRec}`)
+            this.logInfo(`take step ${arg.step.stepId} ${arg.amount} ${arg.needRec}`)
             this.takeStep(creep, arg.step, arg.amount, arg.needRec);
             amount += arg.amount;
             if (amount >= capacity) {
@@ -462,7 +497,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
 
     private handleLink(link: StructureLink, type: "input" | "output") {
         let status = this.memory.linkStatusMap[link.id];
-        console.log(`handleLink ${link.id} ${type} ${status}`)
+        this.logInfo(`handleLink ${link.id} ${type} ${status}`)
         if (!status) {
             status = this.memory.linkStatusMap[link.id] = {
                 status: "free",
@@ -504,7 +539,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 rStatus.status = "wait_send_out";
                 rStatus.reservedSendOut = 700;
                 rStatus.sendToLinkIdList.push(link.id);
-                console.log(`handleLink 1 ${type} ${link.id} ${rLink.id} ${amount}`)
+                this.logInfo(`handleLink 1 ${type} ${link.id} ${rLink.id} ${amount}`)
 
                 status.status = "wait_send_in";
                 status.reservedSendIn = 700;
@@ -516,7 +551,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 }
                 rStatus.status = "wait_send_in";
                 rStatus.reservedSendIn = 700;
-                console.log(`handleLink 1 ${type} ${link.id} ${rLink.id} ${amount}`)
+                this.logInfo(`handleLink 1 ${type} ${link.id} ${rLink.id} ${amount}`)
 
                 status.status = "wait_send_out";
                 status.sendToLinkIdList.push(rLink.id);
@@ -535,7 +570,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         if (!storageStatus || storageStatus.status != "free") {
             return;
         }
-        console.log(`handleLink 2 ${type} ${link.id} ${storageLink.id}`)
+        this.logInfo(`handleLink 2 ${type} ${link.id} ${storageLink.id}`)
         if (type == "input") {
             this.addStep(storage, storageLink, RESOURCE_ENERGY, 700, true);
             storageStatus.reservedInput = 700;
@@ -567,7 +602,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
 
     private addStep(objOutPut: ObjectWithPos, objInput: ObjectWithPos, resourceType: ResourceConstant, amount: number, needRec: boolean): CarryStep {
         if (!objOutPut || !objInput || !resourceType || amount <= 0) {
-            console.log("addStep error:" + objOutPut + " " + objInput + " " + resourceType + " " + amount)
+            this.logInfo("addStep error:" + objOutPut + " " + objInput + " " + resourceType + " " + amount)
             return null;
         }
         let stepId = `${objOutPut.id}_${objInput.id}_${resourceType}_${needRec}`;
@@ -609,7 +644,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         }
         let roomName = <RoomName>obj.pos.roomName;
         if (roomName != this.roomName) {
-            console.log("not in one room" + roomName + "  " + this.roomName)
+            this.logInfo("not in one room" + roomName + "  " + this.roomName)
             return null;
         }
         let taskId = `${obj.id}#${carryType}#${resourceType}`;
@@ -712,7 +747,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             let bDistance = bPos.getRangeTo(obj.pos) + b.distanceBias;
             return aDistance - bDistance;
         });
-        console.log(JSON.stringify(taskArgList))
+        this.logInfo(JSON.stringify(taskArgList))
         let finalArg = taskArgList[0];
         let otherTask = finalArg.task;
         task.reserved += amount;

@@ -1,5 +1,7 @@
-import {BaseGroup, GroupMemory, SpawnConfig} from "./BaseGroup";
+import {BaseGroup, CreepPartConfig, GroupMemory} from "./BaseGroup";
 import {directionBiasMap, roomConfigMap} from "./Config";
+import {SpawnConfig} from "./Spawn";
+import _ = require("lodash");
 
 export type UpgradeMemory = {} & GroupMemory;
 
@@ -15,30 +17,125 @@ export type UpgradeCreepMemory = {
 export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     protected moduleName: string = "upgrade";
 
-    protected getSpawnConfigList(): SpawnConfig[] {
-        let config = roomConfigMap[this.roomName].upgrade;
-        let workNum = config.partNum;
-        let carryNum = config.carryNum || 2;
-        let moveNum = config.moveNum || 2;
-
+    private getPartConfigByAuto(): CreepPartConfig {
+        if (this.roomFacility.getController().level == 8) {
+            return null;
+        }
         if (this.roomFacility.isInLowEnergy()) {
-            workNum = Math.min(workNum, 2);
-            carryNum = Math.min(carryNum, 1);
-            moveNum = Math.min(moveNum, 1);
+            return null;
         }
-        let body: BodyPartConstant[] = [];
-        for (let i = 0; i < workNum; i++) {
-            body.push(WORK);
+        let result: CreepPartConfig = {};
+        let energyAmount = this.roomFacility.getCapacityEnergy();
+        //4 work
+        if (energyAmount >= 4 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 4;
+            result.carryNum = 2;
+            result.moveNum = 2;
+            result.autoNum = 4;
         }
-        for (let i = 0; i < carryNum; i++) {
-            body.push(CARRY);
+        //8 work
+        if (energyAmount >= 8 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 8;
+            result.carryNum = 2;
+            result.moveNum = 2;
+            result.autoNum = 2;
         }
-        for (let i = 0; i < moveNum; i++) {
-            body.push(MOVE);
+        //16 work
+        if (energyAmount >= 16 * 100 + 4 * 50 + 4 * 50) {
+            result.workNum = 16;
+            result.carryNum = 4;
+            result.moveNum = 4;
+            result.autoNum = 1;
+        }
+        if (!result.workNum) {
+            return null;
         }
 
+        //单矿房减半
+        if (this.roomFacility.getSourceList().length < 2) {
+            if (result.autoNum > 1) {
+                result.autoNum /= 2;
+                return result;
+            }
+            if (result.workNum > 1) {
+                result.workNum /= 2;
+                return result;
+            }
+        }
+        return result;
+    }
+
+    private getPartConfigByConfig(): CreepPartConfig {
+        let config = roomConfigMap[this.roomName].upgrade;
+
+        let result: CreepPartConfig = {};
+        result.workNum = config.workNum;
+        result.carryNum = config.carryNum ? config.carryNum : 1;
+        result.moveNum = config.moveNum ? config.moveNum : 1;
+        result.autoNum = config.autoNum ? config.autoNum : -1;
+        if (this.roomFacility.isInLowEnergy()) {
+            result.workNum = Math.min(result.workNum, 2);
+            result.carryNum = Math.min(result.carryNum, 1);
+            result.moveNum = Math.min(result.moveNum, 1);
+        }
+        return result;
+    }
+
+    protected getSpawnConfigList(): SpawnConfig[] {
+        let partConfig = this.getPartConfigByAuto();
+        if (!partConfig) {
+            partConfig = this.getPartConfigByConfig();
+        }
+
+        let body: BodyPartConstant[] = [];
+        body = body.concat(_.times(partConfig.workNum, () => WORK),
+            _.times(partConfig.carryNum, () => CARRY),
+            _.times(partConfig.moveNum, () => MOVE));
+
+        let config = roomConfigMap[this.roomName].upgrade;
+        let workPosList = config.workPosList;
+        if (partConfig.autoNum && partConfig.autoNum > 1
+            && this.memory.creepNameList.length < partConfig.autoNum) {
+            workPosList = [].concat(workPosList);
+            let centerPos = new RoomPosition(workPosList[0].x, workPosList[0].y, this.roomName);
+            let posList = [];
+            for (let roomPos of this.getPosList(this.roomFacility.getController().pos, 3)) {
+                if (workPosList.some(pos => pos.x == roomPos.x && pos.y == roomPos.y)) {
+                    continue;
+                }
+                //验证地形
+                let terrain = roomPos.lookFor(LOOK_TERRAIN)[0];
+                if (terrain == "wall") {
+                    continue;
+                }
+                //验证建筑，除了container, road外不能有其他的建筑
+                let structures = roomPos.lookFor(LOOK_STRUCTURES);
+                if (structures.some(struct => struct.structureType != "container" && struct.structureType != "road")) {
+                    continue;
+                }
+                let sites = roomPos.lookFor(LOOK_CONSTRUCTION_SITES);
+                if (sites.length > 0) {
+                    continue;
+                }
+                posList.push({
+                    dis: roomPos.getRangeTo(centerPos),
+                    pos: roomPos
+                });
+            }
+            //取最近的
+            let subSize = partConfig.autoNum - workPosList.length;
+            if (subSize > posList.length) {
+                subSize = posList.length;
+            }
+            if (subSize < 0) {
+                subSize = 0;
+            }
+            posList.sort((a, b) => a.dis - b.dis);
+            workPosList = workPosList.concat(posList.slice(0, subSize).map(pos => pos.pos));
+            this.logInfo(`${this.roomName} fast mode, add ${subSize} positions to workPosList, total ${workPosList.length}, pos:${JSON.stringify(workPosList)}`);
+        }
         let spawnConfigList: SpawnConfig[] = [];
-        config.workPosList.forEach(pos => {
+        workPosList.forEach(pos => {
             let workPos = new RoomPosition(pos.x, pos.y, this.roomName);
             spawnConfigList.push({
                 body: body,
@@ -48,6 +145,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
                         workPosition: workPos
                     }
                 },
+                configHash: `${workPos.x}-${workPos.y}`,
                 num: 1
             });
         });

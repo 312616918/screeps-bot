@@ -1,34 +1,38 @@
-import {RoomController} from "./RoomController";
 import {RoomFacility} from "./RoomFacility";
 import {Move} from "./move";
 import {RoomName} from "./Config";
+import {Spawn, SpawnConfig} from "./Spawn";
 
 export type GroupMemory = {
     creepNameList: string[];
 }
 
 export type GroupCreepMemory = {
-    configIndex: number;
+    configHash: string;
 }
 
-export type SpawnConfig = {
-    spawnRoomName?: RoomName;
-    body: BodyPartConstant[];
-    memory: CreepMemory;
-    num: number;
+export type CreepPartConfig = {
+    workNum?: number;
+    carryNum?: number;
+    moveNum?: number;
+    autoNum?: number;
 }
+
+
 
 export abstract class BaseGroup<T extends GroupMemory> {
     protected move: Move;
     protected memory: T;
     protected roomFacility: RoomFacility;
     protected roomName: RoomName;
+    protected spawn: Spawn;
 
-    public constructor(move: Move, memory: T, roomFacility: RoomFacility) {
+    public constructor(move: Move, memory: T, roomFacility: RoomFacility, spawn: Spawn) {
         this.move = move;
         this.memory = memory;
         this.roomFacility = roomFacility;
         this.roomName = roomFacility.roomName;
+        this.spawn = spawn;
     }
 
     protected abstract moduleName: string;
@@ -43,12 +47,12 @@ export abstract class BaseGroup<T extends GroupMemory> {
         let creepList = [];
         for (let creepName of this.memory.creepNameList) {
             if (nameSet[creepName]) {
-                console.log(`creep name duplicate: ${this.roomName} ${creepName}`);
+                this.logInfo(`creep name duplicate: ${this.roomName} ${creepName}`);
                 continue;
             }
             nameSet[creepName] = true
             if (!Game.creeps[creepName]) {
-                console.log(`creep not exist: ${this.roomName} ${creepName}`);
+                this.logInfo(`creep not exist: ${this.roomName} ${creepName}`);
                 this.recycleCreeps(creepName);
                 continue;
             }
@@ -67,10 +71,21 @@ export abstract class BaseGroup<T extends GroupMemory> {
     protected beforeRunEach(creepList: Creep[]) {
     }
 
-
     protected spawnCreeps() {
         let spawnConfigList = this.getSpawnConfigList();
-        let configNumList = spawnConfigList.map(config => config.num);
+        spawnConfigList.forEach(((c,idx)=>{
+            if(!c.configHash){
+                c.configHash = idx.toString();
+            }
+        }));
+        let configMap: {[configHash:string]:SpawnConfig} = {};
+        spawnConfigList.forEach(c=>{
+            if(c.configHash in configMap){
+                this.logInfo(`configHash duplicate: ${this.roomName} ${c.configHash}`);
+                return;
+            }
+            configMap[c.configHash] = c;
+        })
         let recycleNameList = [];
         this.memory.creepNameList.forEach(name => {
             let creep = Game.creeps[name];
@@ -78,45 +93,26 @@ export abstract class BaseGroup<T extends GroupMemory> {
                 recycleNameList.push(name);
                 return;
             }
-            let configIndex = creep.memory.group.configIndex;
-            if (configIndex >= configNumList.length) {
-                return;
+            let configHash = creep.memory.group.configHash;
+            if (configHash in configMap) {
+                configMap[configHash].num--;
             }
-            configNumList[configIndex]--;
         })
         recycleNameList.forEach(name => {
             this.recycleCreeps(name);
         });
-        configNumList.forEach((num, index) => {
-            if (num <= 0) {
-                return;
+        let resultConfigList = [];
+        for (let configHash in configMap) {
+            let c = configMap[configHash];
+            if (c.num <= 0) {
+                continue;
             }
-            let config = spawnConfigList[index];
-            let spawnList = this.roomFacility.getSpawnList();
-            if (config.spawnRoomName) {
-                spawnList = Game.rooms[config.spawnRoomName].find(FIND_MY_SPAWNS);
+            c.onSuccess = (name) => {
+                this.memory.creepNameList.push(name);
             }
-            for (const spawn of spawnList) {
-                if (spawn.spawning) {
-                    continue;
-                }
-                // let creepName = this.moduleName + "-" + Game.time + "-" + index;
-                let creepName = `${this.roomName}-${this.moduleName}-${Game.time}-${index}`
-                let res = spawn.spawnCreep(config.body, creepName, {
-                    memory: {
-                        module: this.moduleName,
-                        group: {
-                            configIndex: index
-                        },
-                        ...config.memory
-                    }
-                })
-                if (res == OK) {
-                    this.memory.creepNameList.push(creepName);
-                    break;
-                }
-            }
-        });
+            resultConfigList.push(c);
+        }
+        this.spawn.reserveSpawn(resultConfigList);
     }
 
     protected recycleCreeps(creepName) {
@@ -154,4 +150,22 @@ export abstract class BaseGroup<T extends GroupMemory> {
         return cost;
     }
 
+    protected logInfo(info:string){
+        // 绿色
+        console.log(`<span style="color: #00ff00;">[INFO]</span> [${this.roomName}] [${this.moduleName}]${info}`)
+        // console.log(`[${this.roomName}] [${this.moduleName}]${info}`)
+    }
+
+    //迭代器 生成范围内的顶点
+    protected* getPosList(centerPos: RoomPosition, dis: number): IterableIterator<RoomPosition> {
+        for (let x = centerPos.x - dis; x <= centerPos.x + dis; x++) {
+            for (let y = centerPos.y - dis; y <= centerPos.y + dis; y++) {
+                //范围不合理
+                if (x <= 0 || x >= 49 || y <= 0 || y >= 49) {
+                    continue;
+                }
+                yield new RoomPosition(x, y, centerPos.roomName);
+            }
+        }
+    }
 }

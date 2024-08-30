@@ -163,7 +163,7 @@ export class Move {
                     }
                 }
             }
-            if (creep.pos.getRangeTo(nextStep.x, nextStep.y) > 1) {
+            if (!nextStep || creep.pos.getRangeTo(nextStep.x, nextStep.y) > 1) {
                 console.log("error nextStep more than 1 range </br>" + JSON.stringify(pathCache) + "</br>"
                     + JSON.stringify(creepMemory) + "</br>" + JSON.stringify(nextStep) + "</<br>" + creep.name);
                 creep.memory.move = null;
@@ -210,9 +210,18 @@ export class Move {
     }
 
     public cleanCache(): void {
-        if (Game.time % 100 != 0) {
+        if (Game.time % 111 != 0) {
             return
         }
+        // // logsize
+        // if (this.roomName == RoomName.W2N18) {
+        //     //log memory address
+        //     console.log(this.memory.pathCache === Memory.roomData.W2N18.move.pathCache)
+        //     console.log(
+        //         "path cache size:" + Object.keys(this.memory.pathCache).length
+        //     )
+        //
+        // }
         for (let id in this.memory.pathCache) {
             let cache = this.memory.pathCache[id];
             if (!cache
@@ -222,5 +231,13 @@ export class Move {
                 delete this.memory.pathCache[id];
             }
         }
+        // if (this.roomName == RoomName.W2N18) {
+        //     console.log(
+        //         "after path cache size:" + Object.keys(this.memory.pathCache).length
+        //     )
+        //     console.log(
+        //         "raw len" + Object.keys(Memory.roomData.W2N18.move.pathCache).length
+        //     )
+        // }
     }
 }

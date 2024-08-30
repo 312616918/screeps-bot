@@ -8,6 +8,8 @@ import {BuilderGroup, BuildMemory} from "./BuilderGroup";
 import {ClaimGroup} from "./ClaimGroup";
 import {GroupMemory} from "./BaseGroup";
 import {CarryGroupV2, CarryMemoryV2} from "./CarryGroupV2";
+import {Spawn, SpawnConfig} from "./Spawn";
+import {Metric} from "./Metric";
 
 
 export type RoomMemory = {
@@ -34,6 +36,7 @@ export class RoomController {
     private carryGroupV2: CarryGroupV2;
     private buildGroup: BuilderGroup;
     private claimGroup: ClaimGroup;
+    private spawn :Spawn;
 
     public constructor(roomName: RoomName, roomMemory: RoomMemory) {
         this.roomName = roomName;
@@ -44,25 +47,30 @@ export class RoomController {
 
         this.roomFacility = new RoomFacility(this.roomName, this.roomMemory.facility);
         this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
+        this.spawn = new Spawn(this.roomName, this.roomFacility);
 
         //未就绪房间
-        if (this.roomFacility.getSpawnList().length == 0) {
+        if (!this.roomFacility.roomIsMine() ||
+            this.roomFacility.getSpawnList().length == 0) {
             console.log(`room ${this.roomName} not ready`)
-            this.claimGroup = new ClaimGroup(this.move, this.roomMemory.claim, this.roomFacility);
+            this.claimGroup = new ClaimGroup(this.move, this.roomMemory.claim, this.roomFacility, this.spawn);
             return;
         }
 
-        this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility);
-        this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility);
+        this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility, this.spawn);
+        this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility, this.spawn);
         if (this.roomName == "W2N22" || this.roomName == "W3N18") {
-            this.carryGroupV2 = new CarryGroupV2(this.move, this.roomMemory.carry_v2, this.roomFacility);
+            this.carryGroupV2 = new CarryGroupV2(this.move, this.roomMemory.carry_v2, this.roomFacility, this.spawn);
         } else {
-            this.carryGroup = new CarryGroup(this.move, this.roomMemory.carry, this.roomFacility);
+            this.carryGroup = new CarryGroup(this.move, this.roomMemory.carry, this.roomFacility, this.spawn);
         }
-        this.buildGroup = new BuilderGroup(this.move, this.roomMemory.build, this.roomFacility);
+        this.buildGroup = new BuilderGroup(this.move, this.roomMemory.build, this.roomFacility, this.spawn);
     }
 
     public run() {
+        Metric.recordCount(1, "type", "room_run", "room", this.roomName);
+        // 先清理cache，以防cpu不足无法清理
+        this.move.cleanCache();
         if (this.claimGroup) {
             this.claimGroup.run();
             this.move.moveAll();
@@ -86,8 +94,8 @@ export class RoomController {
             this.carryGroup.run();
             this.carryGroup.visual();
         }
+        this.spawn.spawnCreeps();
         this.move.moveAll();
-        this.move.cleanCache();
         this.roomFacility.visualize();
         this.roomFacility.clearIfNecessary();
 
