@@ -30,6 +30,11 @@ declare global {
     // type RoomName = "W3N15" | "W3N19"
     //     | "W2N15" | "W2N16" | "W7N16";
 
+    type InnerPosition = {
+        x: number;
+        y: number;
+    };
+
     interface Memory {
         // //基础设施
         // facility: FacilityMemory;

@@ -12,6 +12,8 @@ export type UpgradeCreepMemory = {
     inputObjId?: string;
     linkId?: string;
     towerIdList?: string[];
+    //最后从容器获取的时间
+    lastInputTime?: number;
 }
 
 export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
@@ -55,12 +57,15 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
         if (this.roomFacility.getSourceList().length < 2) {
             if (result.autoNum > 1) {
                 result.autoNum /= 2;
-                return result;
-            }
-            if (result.workNum > 1) {
+            } else if (result.workNum > 1) {
                 result.workNum /= 2;
-                return result;
             }
+        }
+
+        // 资源过剩，放双倍
+        if (this.roomFacility.getStorage()
+            && this.roomFacility.getStorage().store.getUsedCapacity(RESOURCE_ENERGY) > 500000) {
+            result.autoNum *= 2;
         }
         return result;
     }
@@ -203,9 +208,16 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             let inputObj = Game.getObjectById<StructureStorage>(creep.memory.upgrade.inputObjId);
             if (inputObj && inputObj.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                 creep.withdraw(inputObj, RESOURCE_ENERGY);
+                creep.memory.upgrade.lastInputTime = Game.time;
                 return;
             }
         }
+        // 长期从容器获取，不额外新增carry任务
+        let lastTime = creep.memory.upgrade.lastInputTime;
+        if (lastTime && Game.time - lastTime < 100) {
+            return;
+        }
+
         let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
         if (leftRate < 0.5) {
             this.roomFacility.submitEvent({

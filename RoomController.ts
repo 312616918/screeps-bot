@@ -10,6 +10,7 @@ import {GroupMemory} from "./BaseGroup";
 import {CarryGroupV2, CarryMemoryV2} from "./CarryGroupV2";
 import {Spawn, SpawnConfig} from "./Spawn";
 import {Metric} from "./Metric";
+import {TmpMemory} from "./TmpMemory";
 
 
 export type RoomMemory = {
@@ -46,20 +47,20 @@ export class RoomController {
         this.initMemory();
 
         this.roomFacility = new RoomFacility(this.roomName, this.roomMemory.facility);
-        this.move = new Move(this.roomName, this.roomMemory.move, this.roomFacility);
+        let moveMemory = TmpMemory.getMoveMemory(this.roomName);
+        this.roomMemory.move = null;
+        this.move = new Move(this.roomName, moveMemory, this.roomFacility);
         this.spawn = new Spawn(this.roomName, this.roomFacility);
 
         //未就绪房间
-        if (!this.roomFacility.roomIsMine() ||
-            this.roomFacility.getSpawnList().length == 0) {
+        if (this.roomFacility.needChaim()) {
             console.log(`room ${this.roomName} not ready`)
             this.claimGroup = new ClaimGroup(this.move, this.roomMemory.claim, this.roomFacility, this.spawn);
-            return;
         }
 
         this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility, this.spawn);
         this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility, this.spawn);
-        if (this.roomName == "W2N22" || this.roomName == "W3N18") {
+        if (this.roomName == "W2N22"||this.roomName == "W1N15") {
             this.carryGroupV2 = new CarryGroupV2(this.move, this.roomMemory.carry_v2, this.roomFacility, this.spawn);
         } else {
             this.carryGroup = new CarryGroup(this.move, this.roomMemory.carry, this.roomFacility, this.spawn);
@@ -74,7 +75,11 @@ export class RoomController {
         if (this.claimGroup) {
             this.claimGroup.run();
             this.move.moveAll();
-            return;
+            this.spawn.spawnCreeps();
+            this.runTower();
+            if (!this.roomFacility.getSpawnList() || this.roomFacility.getSpawnList().length == 0) {
+                return;
+            }
         }
 
         this.checkEvent();
@@ -88,7 +93,6 @@ export class RoomController {
 
         if (this.carryGroupV2) {
             this.carryGroupV2.run();
-            this.carryGroupV2.runLink();
             this.carryGroupV2.visual();
         } else {
             this.carryGroup.run();
@@ -183,7 +187,7 @@ export class RoomController {
                     priority = 1;
                 }
                 if (this.carryGroupV2) {
-                    this.carryGroupV2.addCarryTask(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
+                    this.carryGroupV2.addCarryReq(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
                     continue;
                 }
                 this.carryGroup.addCarryReq(<ObjectWithPos>obj, event.subType, event.resourceType, event.amount, priority);
@@ -198,6 +202,8 @@ export class RoomController {
         // 初始化
         if (!this.roomMemory.facility) {
             this.roomMemory.facility = {
+                lastEnergy: 0,
+                lastEnergyChangedTime: 0,
                 eventList: [],
                 lastLowEnergyTime: 0,
                 closestLinkMap: {}
@@ -229,9 +235,8 @@ export class RoomController {
             this.roomMemory.carry_v2 = {
                 creepNameList: [],
                 taskMap: {},
-                stepMap: {},
-                storageStepMap: {},
-                linkStatusMap: {},
+                nodeTaskMap: {},
+                linkTaskMap:{},
             }
         }
         if (!this.roomMemory.build) {

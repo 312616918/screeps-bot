@@ -195,7 +195,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         //填充link
         if (!hasTransfer && creep.memory.harvest.linkId) {
             let link = Game.getObjectById<StructureLink>(creep.memory.harvest.linkId);
-            if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 100
+            if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0
                 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
                 creep.transfer(link, RESOURCE_ENERGY);
                 hasTransfer = true;

@@ -89,6 +89,24 @@ export class RoomFacility {
         }
     }
 
+    public needChaim(): boolean {
+        if (!this.roomIsMine()) {
+            return true;
+        }
+        if (this.getController().level <= 3) {
+            if (this.getTowerList() || this.getTowerList().length == 0) {
+                return true;
+            }
+            if (!this.getSpawnList() || this.getSpawnList().length == 0) {
+                return true;
+            }
+            if (this.getCapacityEnergy() < 300 + 50 * 10) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public getDevConfig(): DevConfig {
         if (this.devConfig && this.lastDevTick && Game.time - this.lastDevTick < 100) {
             return this.devConfig;
@@ -127,8 +145,8 @@ export class RoomFacility {
         if (this.memory.lastLowEnergyTime && Game.time - this.memory.lastLowEnergyTime > 400) {
             return true;
         }
-        //超过400周期，能量没有任何变动
-        if (this.memory.lastEnergyChangedTime > 0 && Game.time - this.memory.lastEnergyChangedTime > 400) {
+        //能量没有任何变动
+        if (this.memory.lastEnergyChangedTime > 0 && Game.time - this.memory.lastEnergyChangedTime > 1500) {
             return true;
         }
         return false;

@@ -156,6 +156,11 @@ export abstract class BaseGroup<T extends GroupMemory> {
         // console.log(`[${this.roomName}] [${this.moduleName}]${info}`)
     }
 
+    protected logError(info:string){
+        // 红色
+        console.log(`<span style="color: #ff0000;">[ERROR]</span> [${this.roomName}] [${this.moduleName}]${info}`)
+    }
+
     //迭代器 生成范围内的顶点
     protected* getPosList(centerPos: RoomPosition, dis: number): IterableIterator<RoomPosition> {
         for (let x = centerPos.x - dis; x <= centerPos.x + dis; x++) {

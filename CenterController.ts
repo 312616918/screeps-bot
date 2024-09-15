@@ -1,8 +1,8 @@
 import {availableRoomName, RoomName, TerminalConfig, terminalConfigMap} from "./Config";
 import {RoomController} from "./RoomController";
 import {ExpandController} from "./ExpandController";
-import _ = require("lodash");
 import {Metric} from "./Metric";
+import _ = require("lodash");
 
 
 export class CenterController {
@@ -12,7 +12,8 @@ export class CenterController {
             let roomController = roomControllerList[i];
             try {
                 let bucket = Game.cpu.bucket;
-                if (bucket < 100 && i > 3) {
+                //占领中，全速运行
+                if (bucket < 100 && i > 3 && !roomController.getRoomFacility().needChaim()) {
                     Metric.recordCount(1, "type", "room_stop", "room", roomController.getRoomName())
                     continue;
                 }

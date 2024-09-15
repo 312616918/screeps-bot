@@ -20,6 +20,8 @@ export enum RoomName {
     W6N21 = "W6N21",
     W1N15 = "W1N15",
     W11N18 = "W11N18",
+    W1N8 = "W1N8",
+    W1N1="W1N1"
 }
 
 export const availableRoomName: RoomName[] = [
@@ -35,6 +37,8 @@ export const availableRoomName: RoomName[] = [
     RoomName.W8N21,
     RoomName.W9N17,
     RoomName.W11N18,
+    RoomName.W1N8,
+    RoomName.W1N1
 ]
 
 export const directionBiasMap = {
@@ -100,7 +104,7 @@ export const roomConfigMap: {
 } = {
     [RoomName.W2N18]: {
         carry: {
-            partNum: 2,
+            partNum: 8,
             carryNum: 2,
         },
         harvest: {
@@ -546,6 +550,44 @@ export const roomConfigMap: {
                 y: 36,
             }]
         }
+    },
+    [RoomName.W1N8]: {
+        carry: {
+            partNum: 2,
+            carryNum: 2,
+        },
+        harvest: {
+            workPosList: [{
+                x: 18,
+                y: 13,
+            }]
+        },
+        upgrade: {
+            workNum: 1,
+            workPosList: [{
+                x: 13,
+                y: 23,
+            }]
+        }
+    },
+    [RoomName.W1N1]: {
+        carry: {
+            partNum: 2,
+            carryNum: 2,
+        },
+        harvest: {
+            workPosList: [{
+                x: 29,
+                y: 28,
+            }]
+        },
+        upgrade: {
+            workNum: 1,
+            workPosList: [{
+                x: 40,
+                y: 25,
+            }]
+        }
     }
 }
 
@@ -686,3 +728,24 @@ export const DevLevelConfig: DevConfig [] = [
         }
     }
 ]
+
+
+
+type ChaimConfig = {
+    spawnRoom: RoomName;
+    milestoneList: string[];
+}
+
+
+export const ALL_CHAIM_CONFIG: {
+    [roomName in RoomName]?: ChaimConfig
+} = {
+    [RoomName.W1N8]: {
+        spawnRoom: RoomName.W1N15,
+        milestoneList: ["W0N15","W0N8"]
+    },
+    [RoomName.W1N1]:{
+        spawnRoom: RoomName.W1N8,
+        milestoneList: ["W0N8","W0N1"]
+    }
+}
