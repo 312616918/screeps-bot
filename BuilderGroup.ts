@@ -1,10 +1,10 @@
-import {RoomName} from "./Config";
 import {BaseGroup, GroupMemory} from "./BaseGroup";
 import {SpawnConfig} from "./Spawn";
 
 
 export type BuildCreepMemory = {
     targetId: string;
+    repairId?: string;
     workPos?: RoomPosition;
     sourceId?: string;
 }
@@ -26,7 +26,7 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
         }
         let body: BodyPartConstant[] = [];
         if (this.roomFacility.isInLowEnergy()) {
-            body = [WORK, CARRY, MOVE];
+            body = [WORK, CARRY, CARRY, CARRY, MOVE];
         } else {
             let partNum = (this.roomFacility.getRoom().energyAvailable - 100) / 200;
             partNum = Math.floor(partNum);
@@ -51,14 +51,66 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
                     targetId: sites[0].id,
                 }
             },
-            num: 1
+            num: 2
         }];
     }
 
     protected runEachCreep(creep: Creep) {
         let creepMemory = creep.memory.build;
+        if (creepMemory.repairId) {
+            let target = Game.getObjectById<StructureRampart>(creepMemory.repairId);
+            if (!target) {
+                delete creepMemory["repairId"]
+                return;
+            }
+            if (target.hits > 300) {
+                delete creepMemory["repairId"]
+                return;
+            }
+            if (creep.pos.getRangeTo(target) > 3) {
+                this.move.reserveMove(creep, target.pos, 3);
+                return;
+            }
+            creep.repair(target);
+            if (creep.store.getFreeCapacity() > 20) {
+                let handled = this.getEnergyFromSource(creep, creepMemory);
+                if (handled) {
+                    return;
+                }
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    resourceType: RESOURCE_ENERGY,
+                    objId: creep.id,
+                    amount: creep.store.getCapacity(),
+                    objType: "builder"
+                })
+            }
+            return;
+        }
         let target = Game.getObjectById<ConstructionSite>(creepMemory.targetId);
         if (!target) {
+            // 如果刚刚构建的是rampart，需要修复一段时间
+            let ramPartList = this.roomFacility.getRoom().find(FIND_MY_STRUCTURES, {
+                filter: structure => {
+                    if (structure.structureType != STRUCTURE_RAMPART) {
+                        return false;
+                    }
+                    if (creep.pos.getRangeTo(structure) > 5) {
+                        return false;
+                    }
+                    if (structure.hits > 300) {
+                        return false;
+                    }
+                    return true;
+                }
+            })
+            if (ramPartList.length > 0) {
+                creepMemory.repairId = ramPartList[0].id;
+                return;
+            }
+
+
             let sites = this.roomFacility.getConstructionSiteList();
             if (sites.length == 0) {
                 return;
@@ -90,6 +142,14 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
         }
     }
 
+    protected beforeRecycle(creepMemory: CreepMemory): void {
+        let workPos = creepMemory.build.workPos;
+        if (workPos) {
+            let posKey = `${workPos.x}-${workPos.y}`;
+            delete this.memory.workPosMap[posKey];
+        }
+    }
+
     private setSourceId(creep: Creep, creepMemory: BuildCreepMemory) {
         // 20tick，寻找一次
         if (Game.time % 20 != 0) {
@@ -99,6 +159,9 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
             return;
         }
         if (!creepMemory.targetId) {
+            return;
+        }
+        if(this.roomFacility.getSourceList().length<2){
             return;
         }
         let target = Game.getObjectById<ConstructionSite>(creepMemory.targetId);
@@ -164,15 +227,6 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
         this.logInfo(`error source type: ${source}`)
         creepMemory.sourceId = ""
         return false;
-    }
-
-
-    protected beforeRecycle(creepMemory: CreepMemory): void {
-        let workPos = creepMemory.build.workPos;
-        if (workPos) {
-            let posKey = `${workPos.x}-${workPos.y}`;
-            delete this.memory.workPosMap[posKey];
-        }
     }
 
 

@@ -1,7 +1,8 @@
 import {BaseGroup, GroupMemory} from "./BaseGroup";
 import {roomConfigMap, RoomName} from "./Config";
 import {SpawnConfig} from "./Spawn";
-import {ALL_ROOM_CARRY_CONFIG, RoomCarryConfig} from "./CarryConfig";
+import {RoomCarryConfig} from "./CarryConfig";
+import _ = require("lodash");
 
 
 type LinkStatus = {
@@ -26,6 +27,13 @@ export type CarryMemoryV2 = {
     linkTaskMap: {
         [linkId: string]: LinkStatus
     }
+    // // 空闲时间统计，用于动态确定数量
+    // allActiveTicks: number;
+    // allIdleTicks: number;
+    //
+    // // 自动数量
+    // autoNum: number;
+    // autoUnitNum: number;
 } & GroupMemory;
 
 type CarryTask = {
@@ -36,6 +44,7 @@ type CarryTask = {
     amount: number;
     reserved: number;
     priority: number;
+    increase: number;
 }
 
 /**
@@ -47,6 +56,11 @@ export type CarryCreepMemoryV2 = {
         reserved: number;
         needRec: boolean;
     }[];
+    lastEnergyTick?: number;
+
+    beginIncreaseTick?: number;
+    lastIncreaseChangeTick?: number;
+    lastIncreaseAmount?: number;
 }
 
 type TaskArg = {
@@ -101,13 +115,21 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 lastPos = obj.pos;
             }
         }
+
+        // link status
+        if (this.carryConfig) {
+            this.carryConfig.link.forEach(c => {
+                room.visual.text(c.status, c.pos.x, c.pos.y, {})
+            })
+        }
     }
 
     public addCarryReq(obj: ObjectWithPos,
                        carryType: CarryTaskType,
                        resourceType: ResourceConstant,
                        amount: number,
-                       priority: number): string {
+                       priority: number,
+                       increase = 0): string {
         if (!obj || !carryType || !resourceType || amount <= 0) {
             return null;
         }
@@ -133,7 +155,8 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 carryType: carryType,
                 amount: amount,
                 reserved: 0,
-                priority: priority
+                priority: priority,
+                increase: increase
             }
             return taskId;
         }
@@ -161,6 +184,9 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             let link = Game.getObjectById<StructureLink>(linkConfig.linkId);
             if (!link) {
                 link = this.getLinkByPos(linkConfig.pos);
+                if (!link) {
+                    continue;
+                }
                 linkConfig.linkId = link.id;
             }
             if (link.cooldown) {
@@ -199,11 +225,11 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 return;
             }
             // 从both转入
-            for (const outLink of bothLinkList) {
-                if (outLink.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            for (const bothLink of bothLinkList) {
+                if (bothLink.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                     continue;
                 }
-                outLink.transferEnergy(link);
+                bothLink.transferEnergy(link);
                 return;
             }
             // 请求both
@@ -245,11 +271,11 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             }
             // 从in转出已经验证
             // 从both转出
-            for (const inLink of bothLinkList) {
-                if (inLink.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+            for (const bothLink of bothLinkList) {
+                if (bothLink.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                     continue;
                 }
-                inLink.transferEnergy(link);
+                link.transferEnergy(bothLink);
                 return;
             }
             // 申请
@@ -281,26 +307,114 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
     }
 
     protected beforeRunEach(creepList: Creep[]) {
-        this.carryConfig = ALL_ROOM_CARRY_CONFIG[this.roomName];
+        // this.carryConfig = ALL_ROOM_CARRY_CONFIG[this.roomName];
+        this.carryConfig = this.roomFacility.getCarryConfig();
         if (Game.time % 100 == 0) {
             this.memory.taskMap = {};
             this.memory.nodeTaskMap = {};
             this.memory.linkTaskMap = {};
         }
-        if(!this.memory.nodeTaskMap){
+        if (!this.memory.nodeTaskMap) {
             this.memory.nodeTaskMap = {};
         }
-        if(!this.memory.linkTaskMap){
+        if (!this.memory.linkTaskMap) {
             this.memory.linkTaskMap = {};
         }
+        // if(this.memory.allActiveTicks==undefined){
+        //     this.memory.allActiveTicks = 0;
+        //     this.memory.allIdleTicks = 0;
+        //     this.memory.autoNum = 0;
+        //     this.memory.autoUnitNum = 0;
+        // }
         this.runLink();
     }
 
+
     protected getSpawnConfigList(): SpawnConfig[] {
+        return this.getSpawnConfigListByConfig();
+    }
+
+    // protected getSpawnConfigListByAuto(): SpawnConfig[] {
+    //     // 1000周期重置信息
+    //     if(this.memory.allActiveTicks>=1000){
+    //         // 利用率低于50%，降低数量
+    //         let rate = this.memory.allIdleTicks/this.memory.allActiveTicks;
+    //         if(rate<0.5){
+    //             // 数量低于2，降低unit数量
+    //             if(this.memory.autoNum<=2){
+    //                 this.memory.autoUnitNum = Math.max(1,this.memory.autoUnitNum-1);
+    //             }else{
+    //                 this.memory.autoNum = Math.max(1,this.memory.autoNum-1);
+    //             }
+    //         }
+    //
+    //         // 高于90%
+    //         if(rate>0.9) {
+    //             // 超出当前资源能力，或者8，
+    //         }
+    //     }
+    //
+    //
+    // }
+
+
+    protected getSpawnConfigListByAuto(): SpawnConfig[] {
+        if (this.roomFacility.isInLowEnergy()) {
+            return null;
+        }
+        let energyAmount = this.roomFacility.getCapacityEnergy();
+        // 没有carry，用可用energy
+        if(this.memory.creepNameList.length==0){
+            energyAmount = this.roomFacility.getAvailableEnergy();
+        }
+        let partNum = 0;
+        let startNum = 8;
+        let num = 2;
+        if(this.roomName==RoomName.E9N6){
+            num = 6;
+        }
+        if (this.roomFacility.isRunningExpand()) {
+            num *= 2;
+            startNum *= 2;
+        }
+        for (let i = startNum; i > -1; i--) {
+            partNum = i;
+            if (partNum * 150 <= energyAmount) {
+                break;
+            }
+        }
+        if (partNum <= 0) {
+            return null;
+        }
+        if(this.roomName == RoomName.E31N9){
+            partNum = 1;
+        }
+        let body = [].concat(_.times(partNum * 2, () => CARRY),
+            _.times(partNum, () => MOVE));
+        return [
+            {
+                body: body,
+                memory: {
+                    module: this.moduleName,
+                    carry_v2: {
+                        taskRecordList: []
+                    }
+                },
+                num: num
+            }
+        ];
+    }
+
+    protected getSpawnConfigListByConfig(): SpawnConfig[] {
+        let autoResult = this.getSpawnConfigListByAuto();
+        if (autoResult != null) {
+            return autoResult;
+        }
+
         let config = roomConfigMap[this.roomName].carry;
         let partNum = config.partNum;
         if (this.roomFacility.isInLowEnergy()) {
-            partNum = Math.min(partNum, 1);
+            partNum = 1;
         }
         let body: BodyPartConstant[] = [];
         for (let i = 0; i < partNum; i++) {
@@ -360,13 +474,50 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 return;
             }
             this.move.reserveMove(creep, target.pos, 1);
+
+            //increase，5周期执行一次
+            if (creepMemory.beginIncreaseTick) {
+                if ((Game.time - creepMemory.beginIncreaseTick) % 5 != 0) {
+                    return;
+                }
+            }
+
             let res = creep.transfer(<AnyCreep | Structure>target, task.resourceType, taskRecord.reserved)
             if (res == ERR_NOT_ENOUGH_RESOURCES || res == ERR_FULL) {
                 res = creep.transfer(<AnyCreep | Structure>target, task.resourceType)
             }
-            if (res != ERR_NOT_IN_RANGE) {
-                this.finishTask(creepMemory, 0)
+            if (res == ERR_NOT_IN_RANGE) {
+                return;
             }
+            if(res!=OK){
+                this.logError(`error: ${creepName} transfer error ${res}`)
+            }
+            //increase需求需要持续供应一段时间
+            if (task.increase > 0) {
+                let targetIncreaseAmount = (<AnyCreep>target).store.getFreeCapacity(task.resourceType);
+                let predictAmount = Math.min(taskRecord.reserved, targetIncreaseAmount);
+                if (creep.store.getUsedCapacity(task.resourceType) > predictAmount) {
+                    if (!creepMemory.beginIncreaseTick) {
+                        creepMemory.beginIncreaseTick = Game.time;
+                    }
+                    if(!creepMemory.lastIncreaseChangeTick){
+                        creepMemory.lastIncreaseChangeTick = Game.time;
+                    }
+                    // 最多供应300周期
+                    let isInTickRange = Game.time - creepMemory.beginIncreaseTick < 300;
+                    // 最近5tick必须有变化
+                    let hasChange = true;
+                    if(Game.time-creepMemory.lastIncreaseChangeTick>5 && creepMemory.lastIncreaseAmount==targetIncreaseAmount ){
+                        hasChange = false;
+                    }
+                    creepMemory.lastIncreaseAmount = targetIncreaseAmount;
+                    if (isInTickRange && hasChange) {
+                        this.logInfo(`creep ${creepName} increase ${task.resourceType} ${predictAmount}`)
+                        return;
+                    }
+                }
+            }
+            this.finishTask(creepMemory, 0)
             return;
         }
         if (task.carryType == "pickup") {
@@ -382,6 +533,10 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
     protected finishTask(carryCreepMemory: CarryCreepMemoryV2, index: number): void {
         let record = carryCreepMemory.taskRecordList[index];
         carryCreepMemory.taskRecordList.splice(index, 1);
+        carryCreepMemory.beginIncreaseTick = undefined;
+        carryCreepMemory.lastIncreaseChangeTick = undefined;
+        carryCreepMemory.lastIncreaseAmount = undefined;
+
         let taskId = record.taskId;
         let task = this.memory.taskMap[taskId];
         if (!task) {
@@ -494,7 +649,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
 
     protected arrange(creep: Creep): void {
         // this.logInfo("arrange", creep.name)
-
+        let creepMemroy = creep.memory.carry_v2;
         let taskArgList: TaskArg[] = [];
         //1. has resource
         let usedAmount = creep.store.getUsedCapacity();
@@ -525,10 +680,38 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     });
                 }
                 if (taskArgList.length > 0) {
+                    creepMemroy.lastEnergyTick = 0;
                     let finalTask = this.getClosestTask(creep, taskArgList);
                     this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                     return;
                 }
+                if (!creepMemroy.lastEnergyTick) {
+                    creepMemroy.lastEnergyTick = Game.time;
+                }
+                let isTooLong = creepMemroy.lastEnergyTick && Game.time - creepMemroy.lastEnergyTick > 100;
+                // 没有energy的output，等待，不着急送回
+                if (resourceType == RESOURCE_ENERGY && !isTooLong) {
+                    let hasOutput = false;
+                    for (let taskId in this.memory.taskMap) {
+                        let task = this.memory.taskMap[taskId];
+                        if (task.resourceType != RESOURCE_ENERGY) {
+                            continue;
+                        }
+                        if (task.amount <= task.reserved) {
+                            continue;
+                        }
+                        if (task.carryType != "output") {
+                            continue;
+                        }
+                        hasOutput = true;
+                        break;
+                    }
+                    if (!hasOutput) {
+                        continue;
+                    }
+                }
+
+                creepMemroy.lastEnergyTick = Game.time;
                 let link = this.getNodeLink(creep.pos, resourceType, "input");
                 // 从link
                 if (link) {
@@ -612,6 +795,10 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             if (taskArgList.length > 0) {
                 let finalTask = this.getClosestTask(creep, taskArgList);
                 let targetObj = Game.getObjectById<ObjectWithPos>(finalTask.task.objId);
+                if (!targetObj) {
+                    this.logError("targetObj is null")
+                    return
+                }
                 // 判断是否是link需求
                 let link = this.getNodeLink(targetObj.pos, finalTask.task.resourceType, "output");
                 if (link) {

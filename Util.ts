@@ -7,6 +7,22 @@ export function checkPos(pos: RoomPosition, allowEdge = false): boolean {
     return pos.x > 0 && pos.x < 49 && pos.y > 0 && pos.y < 49
 }
 
+export function isSamePos(pos1: RoomPosition, pos2: RoomPosition): boolean {
+    if (pos1 == null && pos2 == null) {
+        return true;
+    }
+    if (pos1 == null || pos2 == null) {
+        return false;
+    }
+    if (pos1.roomName != pos2.roomName) {
+        return false;
+    }
+    if (pos1.x != pos2.x || pos1.y != pos2.y) {
+        return false;
+    }
+    return true;
+}
+
 
 type PosDistanceInfo = {
     pos: RoomPosition;

@@ -13,7 +13,8 @@ export class CenterController {
             try {
                 let bucket = Game.cpu.bucket;
                 //占领中，全速运行
-                if (bucket < 100 && i > 3 && !roomController.getRoomFacility().needChaim()) {
+                let fac = roomController.getRoomFacility();
+                if (bucket < 200 && i > 2 && !fac.needChaim() && !fac.isRunningExpand()) {
                     Metric.recordCount(1, "type", "room_stop", "room", roomController.getRoomName())
                     continue;
                 }
@@ -27,16 +28,29 @@ export class CenterController {
             }
         }
         this.deleteDeadCreep();
-        // this.runExpand();
+        this.runExpand();
         this.runPixel();
         // this.runTerminal(roomControllerList);
+        this.drawCode();
+        this.clearLossRoomMemory();
+    }
 
-
+    private clearLossRoomMemory(){
+        if(Game.time % 1000 !=0){
+            return;
+        }
+        let memoryRooms = Object.keys(Memory.roomData);
+        for(let roomName of memoryRooms) {
+            if (!availableRoomName.includes(<RoomName>roomName)) {
+                console.log(`delete room ${roomName}`);
+                delete Memory.roomData[roomName];
+            }
+        }
     }
 
     private getRoomControllerList() {
 
-        if(!Memory.roomData){
+        if (!Memory.roomData) {
             Memory.roomData = {}
         }
 
@@ -89,7 +103,7 @@ export class CenterController {
     }
 
     private deleteDeadCreep() {
-        if (Game.time % 10000 == 0) {
+        if (Game.time % 1000 == 0) {
             for (let name in Memory.creeps) {
                 if (!Game.creeps[name]) {
                     console.log(`delete creep ${name}`)
@@ -169,6 +183,55 @@ export class CenterController {
                     objType: "terminal"
                 }
             )
+        }
+    }
+
+    private drawCode() {
+        if (!Memory.codeDraw) {
+            return;
+        }
+        try {
+            for (let key in Memory.codeDraw) {
+                let showFlag = Game.flags[`${key}_show`]
+                if (!showFlag) {
+                    continue;
+                }
+                let build = false;
+                if (Game.flags[`${key}_build`]) {
+                    build = true;
+                }
+                let valueStr = Memory.codeDraw[key];
+                let codeArray = JSON.parse(valueStr);
+                let room = Game.rooms[showFlag.pos.roomName];
+                for (let i = 0; i < codeArray.length; i++) {
+                    for (let j = 0; j < codeArray[i].length; j++) {
+                        let pos = new RoomPosition(showFlag.pos.x + j, showFlag.pos.y + i, showFlag.pos.roomName);
+                        room.visual.text(codeArray[i][j], pos, {
+                            align: "left",
+                            font: "10px monospace",
+                            opacity: 0.5
+                        })
+                        if (!build) {
+                            continue;
+                        }
+                        if (codeArray[i][j] == 0) {
+                            continue;
+                        }
+                        // 已经有建筑或者site
+                        if (pos.lookFor(LOOK_STRUCTURES).length > 0) {
+                            continue;
+                        }
+                        if (pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0) {
+                            build = false;
+                            continue;
+                        }
+                        room.createConstructionSite(pos, STRUCTURE_WALL);
+                        build = false;
+                    }
+                }
+            }
+        } catch (e) {
+            console.log(e.stack)
         }
     }
 }

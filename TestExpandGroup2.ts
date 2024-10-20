@@ -20,8 +20,8 @@ export class TestExpandGroup2 extends BaseExpandGroup<TestExpandGroupMemory> {
         name: "test-group2",
         spawnRoomName: RoomName.W2N18,
         shape: [
-            ["*", "x", "s", "x"],
-            ["x", "x", "x", "x"]
+            ["*", "x"],
+            // ["x", "x", "x", "x"]
         ],
         runOrder: ["*", "s", "x"],
         roleConfigMap: {
@@ -57,17 +57,17 @@ export class TestExpandGroup2 extends BaseExpandGroup<TestExpandGroupMemory> {
                     MOVE, MOVE, MOVE, MOVE, MOVE,
                     HEAL, HEAL, HEAL, HEAL, HEAL,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    HEAL, HEAL, HEAL, HEAL, HEAL,
-                    MOVE, MOVE, MOVE, MOVE, MOVE,
-                    HEAL, HEAL, HEAL, HEAL, HEAL,
-                    MOVE, MOVE, MOVE, MOVE, MOVE,
+                    // HEAL, HEAL, HEAL, HEAL, HEAL,
+                    // MOVE, MOVE, MOVE, MOVE, MOVE,
+                    // HEAL, HEAL, HEAL, HEAL, HEAL,
+                    // MOVE, MOVE, MOVE, MOVE, MOVE,
                     HEAL, HEAL, HEAL, HEAL, HEAL,],
                 memory: {}
             }
         },
         meet: {
-            pos: new RoomPosition(6, 30, RoomName.W2N18),
-            dir: TOP
+            pos: new RoomPosition(37, 45, RoomName.W3N18),
+            dir: BOTTOM
         },
         headPos: {
             x: 0,

@@ -1,5 +1,5 @@
 import {BaseGroup, CreepPartConfig, GroupMemory} from "./BaseGroup";
-import {directionBiasMap, roomConfigMap} from "./Config";
+import {roomConfigMap, RoomName} from "./Config";
 import {SpawnConfig} from "./Spawn";
 import _ = require("lodash");
 
@@ -19,77 +19,20 @@ export type UpgradeCreepMemory = {
 export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     protected moduleName: string = "upgrade";
 
-    private getPartConfigByAuto(): CreepPartConfig {
-        if (this.roomFacility.getController().level == 8) {
-            return null;
-        }
-        if (this.roomFacility.isInLowEnergy()) {
-            return null;
-        }
-        let result: CreepPartConfig = {};
-        let energyAmount = this.roomFacility.getCapacityEnergy();
-        //4 work
-        if (energyAmount >= 4 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 4;
-            result.carryNum = 2;
-            result.moveNum = 2;
-            result.autoNum = 4;
-        }
-        //8 work
-        if (energyAmount >= 8 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 8;
-            result.carryNum = 2;
-            result.moveNum = 2;
-            result.autoNum = 2;
-        }
-        //16 work
-        if (energyAmount >= 16 * 100 + 4 * 50 + 4 * 50) {
-            result.workNum = 16;
-            result.carryNum = 4;
-            result.moveNum = 4;
-            result.autoNum = 1;
-        }
-        if (!result.workNum) {
-            return null;
-        }
-
-        //单矿房减半
-        if (this.roomFacility.getSourceList().length < 2) {
-            if (result.autoNum > 1) {
-                result.autoNum /= 2;
-            } else if (result.workNum > 1) {
-                result.workNum /= 2;
-            }
-        }
-
-        // 资源过剩，放双倍
-        if (this.roomFacility.getStorage()
-            && this.roomFacility.getStorage().store.getUsedCapacity(RESOURCE_ENERGY) > 500000) {
-            result.autoNum *= 2;
-        }
-        return result;
-    }
-
-    private getPartConfigByConfig(): CreepPartConfig {
-        let config = roomConfigMap[this.roomName].upgrade;
-
-        let result: CreepPartConfig = {};
-        result.workNum = config.workNum;
-        result.carryNum = config.carryNum ? config.carryNum : 1;
-        result.moveNum = config.moveNum ? config.moveNum : 1;
-        result.autoNum = config.autoNum ? config.autoNum : -1;
-        if (this.roomFacility.isInLowEnergy()) {
-            result.workNum = Math.min(result.workNum, 2);
-            result.carryNum = Math.min(result.carryNum, 1);
-            result.moveNum = Math.min(result.moveNum, 1);
-        }
-        return result;
-    }
-
     protected getSpawnConfigList(): SpawnConfig[] {
+        if (this.memory.creepNameList.length >= 4) {
+            return [];
+        }
+
         let partConfig = this.getPartConfigByAuto();
         if (!partConfig) {
             partConfig = this.getPartConfigByConfig();
+        }
+        if (this.roomFacility.getController().level < 3) {
+            partConfig.autoNum = 4;
+            if (this.roomFacility.getSourceList().length == 1) {
+                partConfig.autoNum = 2;
+            }
         }
 
         let body: BodyPartConstant[] = [];
@@ -212,11 +155,11 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
                 return;
             }
         }
-        // 长期从容器获取，不额外新增carry任务
-        let lastTime = creep.memory.upgrade.lastInputTime;
-        if (lastTime && Game.time - lastTime < 100) {
-            return;
-        }
+        // // 长期从容器获取，不额外新增carry任务
+        // let lastTime = creep.memory.upgrade.lastInputTime;
+        // if (lastTime && Game.time - lastTime < 100 && this.roomName != RoomName.E9N9) {
+        //     return;
+        // }
 
         let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
         if (leftRate < 0.5) {
@@ -232,6 +175,104 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {
+    }
+
+    private getPartConfigByAuto(): CreepPartConfig {
+        if (this.roomFacility.getController().level == 8) {
+            return null;
+        }
+        if (this.roomFacility.isInLowEnergy()) {
+            return null;
+        }
+        let result: CreepPartConfig = {};
+        // if (this.roomName == RoomName.E9N6) {
+        //     result = {
+        //         workNum: 10,
+        //         carryNum: 2,
+        //         moveNum: 2,
+        //         autoNum: 4
+        //     }
+        //     if (this.isPartConfigAvailable(result)) {
+        //         return result;
+        //     }
+        // }
+
+
+        let energyAmount = this.roomFacility.getCapacityEnergy();
+        //4 work
+        if (energyAmount >= 4 * 100 + 2 * 50 + 1 * 50) {
+            result.workNum = 4;
+            result.carryNum = 2;
+            result.moveNum = 1;
+            result.autoNum = 4;
+        }
+        //8 work
+        if (energyAmount >= 8 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 8;
+            result.carryNum = 2;
+            result.moveNum = 2;
+            result.autoNum = 2;
+        }
+        //16 work
+        if (energyAmount >= 16 * 100 + 4 * 50 + 4 * 50) {
+            result.workNum = 16;
+            result.carryNum = 4;
+            result.moveNum = 4;
+            result.autoNum = 1;
+        }
+        if (!result.workNum) {
+            return null;
+        }
+
+        if (this.roomName == RoomName.E3N11 || this.roomName == RoomName.E4N13) {
+            result.autoNum *= 2;
+        }
+
+        //单矿房减半
+        if (this.roomFacility.getSourceList().length < 2) {
+            if (result.autoNum > 1) {
+                result.autoNum /= 2;
+            } else if (result.workNum > 1) {
+                result.workNum /= 2;
+            }
+        }
+
+        // 资源过剩，放双倍
+        if (this.roomFacility.getStorage()
+            && this.roomFacility.getStorage().store.getUsedCapacity(RESOURCE_ENERGY) > 800000) {
+            result.autoNum *= 2;
+        }
+        // 资源不足，只保证最低限度消耗
+        if (this.roomFacility.getController().level > 5
+            && this.roomFacility.getStorage()
+            && this.roomFacility.getStorage().store.getUsedCapacity(RESOURCE_ENERGY) < 200000) {
+            result.workNum = 2;
+            result.moveNum = 1;
+            result.autoNum = 1;
+        }
+        // if (!this.roomFacility.getStorage()
+        //     && this.roomFacility.getController().level >= 4) {
+        //     result.workNum = 2;
+        //     result.moveNum = 1;
+        //     result.autoNum = 1;
+        // }
+        return result;
+    }
+
+    private getPartConfigByConfig(): CreepPartConfig {
+        let config = roomConfigMap[this.roomName].upgrade;
+
+        let result: CreepPartConfig = {};
+        result.workNum = config.workNum;
+        result.carryNum = config.carryNum ? config.carryNum : 1;
+        result.moveNum = config.moveNum ? config.moveNum : 1;
+        result.autoNum = config.autoNum ? config.autoNum : -1;
+        if (this.roomFacility.isInLowEnergy()) {
+            result.workNum = Math.min(result.workNum, 2);
+            result.carryNum = Math.min(result.carryNum, 1);
+            result.moveNum = Math.min(result.moveNum, 1);
+        }
+        return result;
     }
 
 

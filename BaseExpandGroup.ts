@@ -201,7 +201,7 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
         this.name = this.expandSpawnConfig.name;
         this.spawnCreeps()
         let nameSet = {}
-        let creepList = [];
+        let creepList:Creep[] = [];
         for (let creepName of this.memory.creepNameList) {
             if (nameSet[creepName]) {
                 console.log(`creep name duplicate: ${this.name} ${creepName}`);
@@ -226,9 +226,26 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
             this.memory.curPosMap[posKey] = creepName;
             creepList.push(creep);
         }
+        let pos = this.expandSpawnConfig.meet.pos;
+        let meetPos = new RoomPosition(pos.x, pos.y, pos.roomName);
+        let hasNotInRange = false;
         for (let creep of creepList) {
+            if(creep.spawning){
+                continue;
+            }
+            if(this.memory.state=="spawn"){
+                if(creep.pos.getRangeTo(meetPos)>6){
+                    creep.moveTo(meetPos, {visualizePathStyle: {stroke: '#ffaa00'}});
+                    continue;
+                }
+            }
+            hasNotInRange = true;
             this.runEachCreep(creep);
         }
+        if(this.memory.state == "spawn" && hasNotInRange){
+            return;
+        }
+
         if (this.memory.state == "spawn" || this.memory.state == "meeting") {
             this.setCreepTargetPos(this.expandSpawnConfig.meet.pos, this.expandSpawnConfig.meet.dir);
             let allInPos = this.checkAlreadyInPos();
@@ -492,7 +509,8 @@ export abstract class BaseExpandGroup<T extends ExpandGroupMemory> {
                     creep.memory.expand.expandMove = null;
                     return;
                 }
-                let nextDir = creep.pos.getDirectionTo(nextPos.x, nextPos.y);
+                nextPos = new RoomPosition(nextPos.x, nextPos.y, nextPos.roomName);
+                let nextDir = creep.pos.getDirectionTo(nextPos);
                 // let roomFacility = RoomFacility.roomFacilityMap[creep.room.name];
                 // if (roomFacility) {
                 //     let posKey = `${nextPos.x}_${nextPos.y}`

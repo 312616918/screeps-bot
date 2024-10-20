@@ -20,22 +20,23 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
         name: "test-group",
         spawnRoomName: RoomName.W2N18,
         shape: [
-            ["*", "x", "s", "x"],
-            ["x", "x", "x", "x"]
+            ["*", "x", "x"],
+            ["x", "x", "x"]
         ],
         runOrder: ["*", "s", "x"],
         roleConfigMap: {
             "*": {
-                body: [TOUGH, TOUGH, WORK, WORK, WORK,
+                body: [
+                    TOUGH, TOUGH, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    WORK, WORK, WORK, WORK, WORK,
+                    RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    WORK, WORK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+                    RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    WORK, WORK, WORK, WORK, WORK,
+                    RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    WORK, WORK, WORK, WORK, WORK,],
+                    RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,],
                 memory: {}
             },
             "s": {
@@ -52,10 +53,10 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
                 memory: {}
             },
             "x": {
-                body: [TOUGH, TOUGH, HEAL, HEAL, HEAL,
+                body: [TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
-                    MOVE, MOVE, MOVE, MOVE, MOVE,
-                    HEAL, HEAL, HEAL, HEAL, HEAL,
+                    // MOVE, MOVE, MOVE, MOVE, MOVE,
+                    // HEAL, HEAL, HEAL, HEAL, HEAL,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
                     HEAL, HEAL, HEAL, HEAL, HEAL,
                     MOVE, MOVE, MOVE, MOVE, MOVE,
@@ -66,8 +67,8 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
             }
         },
         meet: {
-            pos: new RoomPosition(6, 30, RoomName.W2N18),
-            dir: TOP
+            pos: new RoomPosition(37, 45, RoomName.W3N18),
+            dir: BOTTOM
         },
         headPos: {
             x: 0,
@@ -89,33 +90,37 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
     }
 
     private runHeal(creep: Creep) {
+        console.log("run hell")
         //降序排列
         let creepList = this.memory.creepNameList.map(name => Game.creeps[name])
             .sort((a, b) => {
                 let aDamage = a.hitsMax - a.hits;
                 let bDamage = b.hitsMax - b.hits;
-                return bDamage - aDamage;
+                if (aDamage == bDamage) {
+                    return 0;
+                }
+                return aDamage > bDamage ? -1 : 1;
             });
-        let creepMemory = <TestExpandGroupCreepMemory>creep.memory.expand;
         let target = creepList[0];
         if (target.hitsMax == target.hits) {
-            target = Game.getObjectById(creepMemory.lastHealCreepId);
-            if (!target) {
-                return;
-            }
-        }
-        creepMemory.lastHealCreepId = target.id;
-        if (creep.pos.getRangeTo(target) <= 1) {
-            creep.heal(target);
             return;
         }
-        creep.rangedHeal(target);
+        console.log(`heal ${target.id}`)
+        if (creep.pos.getRangeTo(target) <= 1) {
+            let res = creep.heal(target);
+            console.log(`heal res ${creep.id} ${target.id} ${res}`)
+            return;
+        }
+        let res = creep.rangedHeal(target);
+        console.log(`range heal res ${target.id} ${res}`)
     }
 
     private runAttack(creep: Creep) {
         let creepMemory = <TestExpandGroupCreepMemory>creep.memory.expand;
+        // 优先最近的creep
         let lastAttackObj = Game.getObjectById<Creep>(creepMemory.lastRangeAttackId);
-        if (!lastAttackObj || Game.time % 10 == 0) {
+        if (!lastAttackObj || creep.pos.getRangeTo(lastAttackObj)>3) {
+            lastAttackObj = null;
             let enemyCreepList = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
             if (enemyCreepList.length > 0) {
                 lastAttackObj = enemyCreepList[0];
@@ -124,37 +129,34 @@ export class TestExpandGroup extends BaseExpandGroup<TestExpandGroupMemory> {
         if (lastAttackObj) {
             creepMemory.lastRangeAttackId = lastAttackObj.id;
             creep.rangedAttack(lastAttackObj);
-        }
-
-        let attackFlag = Game.flags[`${this.name}-attack`];
-        if (!attackFlag || !attackFlag.room) {
+            // creep.attack(lastAttackObj);
             return;
         }
 
-        let posKey = `${attackFlag.pos.x}-${attackFlag.pos.y}`;
-        if (creepMemory.lastAttackPos == posKey) {
-            let target = Game.getObjectById<Structure | Creep>(creepMemory.lastAttackObjId);
-            if (target) {
-                creepMemory.lastAttackObjId = target.id;
-                if (target instanceof Creep) {
-                    creep.rangedAttack(target);
-                } else {
-                    creep.dismantle(target);
-                }
+        // 指定攻击
+        let attackFlag = Game.flags[`${this.name}-attack`];
+        if (attackFlag && attackFlag.room && creep.pos.getRangeTo(attackFlag) <= 3) {
+            let targetStructureList = attackFlag.pos.lookFor(LOOK_STRUCTURES);
+            if (targetStructureList.length > 0) {
+                creep.rangedAttack(targetStructureList[0]);
+                // creep.dismantle(targetStructureList[0]);
                 return;
             }
         }
-        creepMemory.lastAttackPos = posKey;
 
-        let targetStructureList = attackFlag.pos.lookFor(LOOK_STRUCTURES);
-        if (targetStructureList.length > 0) {
-            creepMemory.lastAttackObjId = targetStructureList[0].id;
-            creep.dismantle(targetStructureList[0]);
-            if (!lastAttackObj||creep.pos.getRangeTo(lastAttackObj) > 3) {
-                creep.rangedAttack(targetStructureList[0]);
+        // 随机攻击，除了wall和rampart
+        let structureList = creep.pos.findInRange(FIND_HOSTILE_STRUCTURES, 3, {
+            filter: (s) => {
+                if (s.structureType == STRUCTURE_RAMPART) {
+                    return false;
+                }
+                return true;
             }
+        });
+        if (structureList.length > 0) {
+            creep.rangedAttack(structureList[0]);
+            // creep.dismantle(structureList[0]);
             return;
         }
     }
-
 }

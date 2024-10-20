@@ -15,6 +15,8 @@ export type CreepPartConfig = {
     workNum?: number;
     carryNum?: number;
     moveNum?: number;
+    rangeAttackNum?: number;
+    healNum?: number;
     autoNum?: number;
 }
 
@@ -42,30 +44,35 @@ export abstract class BaseGroup<T extends GroupMemory> {
     protected abstract runEachCreep(creep: Creep);
 
     public run() {
-        this.spawnCreeps()
-        let nameSet = {}
-        let creepList = [];
-        for (let creepName of this.memory.creepNameList) {
-            if (nameSet[creepName]) {
-                this.logInfo(`creep name duplicate: ${this.roomName} ${creepName}`);
-                continue;
+        try {
+            this.spawnCreeps()
+            let nameSet = {}
+            let creepList = [];
+            for (let creepName of this.memory.creepNameList) {
+                if (nameSet[creepName]) {
+                    this.logInfo(`creep name duplicate: ${this.roomName} ${creepName}`);
+                    continue;
+                }
+                nameSet[creepName] = true
+                if (!Game.creeps[creepName]) {
+                    this.logInfo(`creep not exist: ${this.roomName} ${creepName}`);
+                    this.recycleCreeps(creepName);
+                    continue;
+                }
+                let creep = Game.creeps[creepName];
+                if (creep.spawning) {
+                    continue;
+                }
+                creepList.push(creep);
             }
-            nameSet[creepName] = true
-            if (!Game.creeps[creepName]) {
-                this.logInfo(`creep not exist: ${this.roomName} ${creepName}`);
-                this.recycleCreeps(creepName);
-                continue;
-            }
-            let creep = Game.creeps[creepName];
-            if (creep.spawning) {
-                continue;
-            }
-            creepList.push(creep);
+            this.beforeRunEach(creepList);
+            creepList.forEach(creep => {
+                this.runEachCreep(creep);
+            });
+        }catch (e) {
+            this.logError(`run error: ${this.roomName}`);
+            console.log(e);
         }
-        this.beforeRunEach(creepList);
-        creepList.forEach(creep => {
-            this.runEachCreep(creep);
-        });
     }
 
     protected beforeRunEach(creepList: Creep[]) {
@@ -73,6 +80,9 @@ export abstract class BaseGroup<T extends GroupMemory> {
 
     protected spawnCreeps() {
         let spawnConfigList = this.getSpawnConfigList();
+        if(!spawnConfigList){
+            return;
+        }
         spawnConfigList.forEach(((c,idx)=>{
             if(!c.configHash){
                 c.configHash = idx.toString();
@@ -133,11 +143,14 @@ export abstract class BaseGroup<T extends GroupMemory> {
             },
             range: range,
             costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
-                if (roomName == "W2N19") {
-                    for (let i = 0; i < 50; i++) {
-                        costMatrix.set(0, i, 255)
-                    }
-                }
+                // if (roomName == "W2N19"||roomName=="W7N15") {
+                //     for (let i = 0; i < 50; i++) {
+                //         costMatrix.set(0, i, 255)
+                //         costMatrix.set(49, i, 255)
+                //         costMatrix.set(i, 0, 255)
+                //         costMatrix.set(i, 49, 255)
+                //     }
+                // }
             }
         });
     }
@@ -172,5 +185,32 @@ export abstract class BaseGroup<T extends GroupMemory> {
                 yield new RoomPosition(x, y, centerPos.roomName);
             }
         }
+    }
+
+    protected getPartConfigCost(config:CreepPartConfig): number{
+        let result = 0;
+        if(config.workNum) {
+            result += config.workNum * 100;
+        }
+        if(config.carryNum) {
+            result += config.carryNum * 50;
+        }
+        if(config.moveNum) {
+            result += config.moveNum * 50;
+        }
+        if(config.rangeAttackNum){
+            result += config.rangeAttackNum * 150;
+        }
+        if(config.healNum){
+            result += config.healNum * 250;
+        }
+        return result;
+    }
+
+    protected isPartConfigAvailable(config:CreepPartConfig): boolean{
+        if(this.getPartConfigCost(config)<=this.roomFacility.getCapacityEnergy()){
+            return true;
+        }
+        return false;
     }
 }

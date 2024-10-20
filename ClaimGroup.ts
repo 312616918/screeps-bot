@@ -1,7 +1,7 @@
-import {ALL_CHAIM_CONFIG, directionBiasMap, RoomName} from "./Config";
+import {ALL_CHAIM_CONFIG, RoomName} from "./Config";
 import {BaseGroup, GroupMemory} from "./BaseGroup";
 import {SpawnConfig} from "./Spawn";
-import {checkPos} from "./Util";
+import _ = require("lodash");
 
 type RoleType = "claim" | "build" | "protect" | "block";
 
@@ -9,7 +9,7 @@ export type ClaimCreepMemory = {
     roomName: RoomName;
     role: RoleType;
     targetId?: string;
-    state?: "harvest" | "build" | "upgrade" | "input" | "idle";
+    state?: "harvest" | "build" | "upgrade" | "input" | "idle" | "pickup" | "withdraw" | "deposit";
     stepIdx?: number;
     workPos?: InnerPosition;
 };
@@ -105,7 +105,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
                 return true;
             }
         } else if (sp.length == 3) {
-            pos = new RoomPosition(parseInt(sp[0]), parseInt(sp[1]), sp[2]);
+            pos = new RoomPosition(parseInt(sp[1]), parseInt(sp[2]), sp[0]);
             if (creep.pos.getRangeTo(pos) > 1) {
                 this.moveNormal(creep, pos, 1);
                 return true;
@@ -176,6 +176,43 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             }
             return;
         }
+        if (creepMemory.state == "pickup") {
+            if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
+                creepMemory.state = "idle";
+                return;
+            }
+            let drop = Game.getObjectById<Resource>(creepMemory.targetId);
+            if (!drop) {
+                this.logError(`not found drop for ${creepMemory.roomName}`)
+                creepMemory.state = "idle";
+                return;
+            }
+            if (creep.pos.getRangeTo(drop) > 1) {
+                this.moveNormal(creep, drop.pos, 1);
+                return;
+            }
+            creep.pickup(drop);
+            return;
+        }
+        if (creepMemory.state == "withdraw") {
+            if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
+                creepMemory.state = "idle";
+                return;
+            }
+            let structure = Game.getObjectById<StructureStorage | StructureTower | StructureExtension | StructureLink>(creepMemory.targetId);
+            if (!structure || structure.store.getUsedCapacity(RESOURCE_ENERGY) <= 0) {
+                this.logError(`not found structure for ${creepMemory.roomName}`)
+                creepMemory.state = "idle";
+                return;
+            }
+            if (creep.pos.getRangeTo(structure) > 1) {
+                this.moveNormal(creep, structure.pos, 1);
+                return;
+            }
+            creep.withdraw(structure, RESOURCE_ENERGY);
+            return;
+        }
+
         if (creepMemory.state == "harvest") {
             if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
                 creepMemory.state = "idle";
@@ -254,11 +291,69 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             return;
         }
 
+        if (creepMemory.state == "deposit") {
+            let target = Game.getObjectById<Structure>(creepMemory.targetId);
+            if (!target) {
+                this.logError(`not found deposit target for ${creepMemory.roomName}`)
+                creepMemory.state = "idle";
+                return;
+            }
+            if (creep.pos.getRangeTo(target) > 1) {
+                this.moveNormal(creep, target.pos, 1);
+                return;
+            }
+            creep.dismantle(target);
+            return;
+        }
+
         if (!creepMemory.state || creepMemory.state == "idle") {
+            // //拆除invader core
+            // if(!this.roomFacility.roomIsMine()){
+            //     let target = this.roomFacility.getRoom().find(FIND_STRUCTURES, {
+            //         filter: structure => structure.structureType == STRUCTURE_INVADER_CORE
+            //     })
+            //     if(target){
+            //         creepMemory.state = "deposit";
+            //         creepMemory.targetId = target[0].id;
+            //         return;
+            //     }
+            // }
+
             // 没资源，先找资源
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 0) {
-                let sources = creep.pos.findClosestByPath(FIND_SOURCES)
-                if(!sources){
+                let drop = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+                    filter: resource => resource.resourceType == RESOURCE_ENERGY
+                });
+                console.log("drop" + drop);
+                if (drop && drop.amount > 100) {
+                    creepMemory.targetId = drop.id;
+                    creepMemory.state = "pickup";
+                    return;
+                }
+
+                let hostileStructureList = this.roomFacility.getHostileStructureList();
+                hostileStructureList = _.filter(hostileStructureList, structure => {
+                    if (structure.structureType != STRUCTURE_STORAGE
+                        && structure.structureType != STRUCTURE_EXTENSION
+                        && structure.structureType != STRUCTURE_TOWER
+                        && structure.structureType != STRUCTURE_LINK) {
+                        return false;
+                    }
+
+                    return (<StructureStorage | StructureExtension | StructureTower | StructureLink>structure).store
+                        .getUsedCapacity(RESOURCE_ENERGY) > 0;
+                });
+                if (hostileStructureList.length > 0) {
+                    let closestHostileStructure = creep.pos.findClosestByRange(hostileStructureList);
+                    creepMemory.targetId = closestHostileStructure.id;
+                    creepMemory.state = "withdraw";
+                    return;
+                }
+
+                let sources = creep.pos.findClosestByPath(FIND_SOURCES, {
+                    range: 2
+                })
+                if (!sources) {
                     this.logError(`not found source for ${creepMemory.roomName}`)
                     creepMemory.state = "idle";
                     return;
@@ -276,6 +371,9 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
                             && structure.structureType != STRUCTURE_TOWER) {
                             return false;
                         }
+                        if (!structure.my) {
+                            return false;
+                        }
                         return structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
                     }
                 });
@@ -287,7 +385,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
             }
 
             // build
-            let sites = creep.room.find(FIND_CONSTRUCTION_SITES);
+            let sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
             if (sites.length != 0) {
                 creepMemory.targetId = sites[0].id;
                 creepMemory.state = "build";
@@ -305,7 +403,8 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
     protected runProtect(creep: Creep) {
         let creepMemory = creep.memory.claim;
         let targetRoomName = creepMemory.roomName;
-        if (creep.room.name != targetRoomName) {
+        if (creep.room.name != targetRoomName
+            || (creepMemory.stepIdx != undefined && creepMemory.stepIdx != -1)) {
             let runWithFlag = this.runWithConfig(creep);
             if (!runWithFlag) {
                 this.moveNormal(creep, new RoomPosition(25, 25, targetRoomName), 1);
@@ -317,26 +416,42 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         if (!enemyCreep || Game.time % 10 == 0) {
             enemyCreep = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
         }
+        let target: any = enemyCreep;
         if (!enemyCreep) {
+            let invaderCore = this.roomFacility.getRoom().find(FIND_STRUCTURES, {
+                filter: structure => structure.structureType == STRUCTURE_INVADER_CORE
+            });
+            if (invaderCore.length > 0) {
+                target = invaderCore[0];
+            }
+        }
+        if (!target) {
             return;
         }
-        creepMemory.targetId = enemyCreep.id;
-        if (creep.pos.getRangeTo(enemyCreep) > 3) {
-            this.moveNormal(creep, enemyCreep.pos, 3);
+        creepMemory.targetId = target.id;
+        if (creep.pos.getRangeTo(target) > 1) {
+            this.moveNormal(creep, target.pos, 1);
             return;
         }
-        creep.rangedAttack(enemyCreep);
+        creep.rangedAttack(target);
+        creep.attack(target);
         creep.heal(creep);
     }
 
     protected getSpawnConfigList(): SpawnConfig[] {
+        if (!this.roomFacility.needChaim()) {
+            return [];
+        }
         let numConfig: {
             [role in RoleType]: number
         } = {
             "claim": 1,
-            "build": 3,
-            "protect": 2,
+            "build": 4,
+            "protect": 1,
             "block": 0
+        }
+        if (this.roomName == RoomName.E31N9) {
+            numConfig.build = 4;
         }
         let fullConfig = {...numConfig};
 
@@ -402,7 +517,7 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
         if (numConfig.protect > 0 && Game.time % 19 == 0) {
             if (Game.rooms[this.roomName]) {
                 let enemyCreep = Game.rooms[this.roomName].find(FIND_HOSTILE_CREEPS);
-                if (enemyCreep) {
+                if (enemyCreep && enemyCreep.length > 0) {
                     return [{
                         spawnRoomName: chaimConfig.spawnRoom,
                         body: [MOVE, MOVE, RANGED_ATTACK, HEAL],
@@ -417,71 +532,108 @@ export class ClaimGroup extends BaseGroup<GroupMemory> {
                         configHash: "chaim-p"
                     }]
                 }
+                let invaderCore = this.roomFacility.getRoom().find(FIND_STRUCTURES, {
+                    filter: structure => structure.structureType == STRUCTURE_INVADER_CORE
+                });
+                if (invaderCore && invaderCore.length > 0) {
+                    return [{
+                        spawnRoomName: chaimConfig.spawnRoom,
+                        body: [MOVE, MOVE, MOVE, MOVE,
+                            ATTACK, ATTACK, ATTACK, ATTACK],
+                        memory: {
+                            module: this.moduleName,
+                            claim: {
+                                roomName: this.roomName,
+                                role: "protect"
+                            }
+                        },
+                        num: 3,
+                        configHash: "chaim-p"
+                    }]
+                }
             }
         }
-        if (this.roomFacility.roomIsMine() && Game.time % 19 == 0) {
-            let existPosSet = {}
-            for (let name of this.memory.creepNameList) {
-                let creep = Game.creeps[name];
-                if (!creep) {
-                    continue;
-                }
-                if (creep.memory.claim.role != "block") {
-                    continue;
-                }
-                let key = creep.memory.claim.workPos.x + "_" + creep.memory.claim.workPos.y;
-                existPosSet[key] = true;
-            }
-
-            // controller 周围围上block
-            let controllerPos = this.roomFacility.getController().pos;
-            let curSpawnRoomName = chaimConfig.spawnRoom;
-            if (this.roomFacility.getSpawnList() && this.roomFacility.getSpawnList().length > 0) {
-                curSpawnRoomName = this.roomName;
-            }
-            for (let dir in directionBiasMap) {
-                let bias = directionBiasMap[dir];
-                let blockPos = new RoomPosition(controllerPos.x + bias.x, controllerPos.y + bias.y, controllerPos.roomName);
-                let key = blockPos.x + "_" + blockPos.y;
-                if (existPosSet[key]) {
-                    continue;
-                }
-
-                if (!checkPos(blockPos)) {
-                    continue;
-                }
-                this.logInfo(`blockPos: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
-                // 没有建筑，不是墙
-                let structures = blockPos.lookFor(LOOK_STRUCTURES);
-                if (structures && structures.length > 0) {
-                    continue;
-                }
-                this.logInfo(`blockPos2: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
-                if (new Room.Terrain(blockPos.roomName).get(blockPos.x, blockPos.y) == TERRAIN_MASK_WALL) {
-                    continue;
-                }
-                this.logInfo(`blockPos3: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
-                return [{
-                    spawnRoomName: curSpawnRoomName,
-                    body: [MOVE],
-                    memory: {
-                        module: this.moduleName,
-                        claim: {
-                            roomName: this.roomName,
-                            role: "block",
-                            workPos: blockPos
-                        }
-                    },
-                    num: 1,
-                    configHash: "chaim-block"
-                }]
-            }
-        }
+        // if (this.roomFacility.roomIsMine() && Game.time % 19 == 0) {
+        //     let existPosSet = {}
+        //     for (let name of this.memory.creepNameList) {
+        //         let creep = Game.creeps[name];
+        //         if (!creep) {
+        //             continue;
+        //         }
+        //         if (creep.memory.claim.role != "block") {
+        //             continue;
+        //         }
+        //         let key = creep.memory.claim.workPos.x + "_" + creep.memory.claim.workPos.y;
+        //         existPosSet[key] = true;
+        //     }
+        //
+        //     // controller 周围围上block
+        //     let controllerPos = this.roomFacility.getController().pos;
+        //     let curSpawnRoomName = chaimConfig.spawnRoom;
+        //     if (this.roomFacility.getSpawnList() && this.roomFacility.getSpawnList().length > 0) {
+        //         curSpawnRoomName = this.roomName;
+        //     }
+        //     for (let dir in directionBiasMap) {
+        //         let bias = directionBiasMap[dir];
+        //         let blockPos = new RoomPosition(controllerPos.x + bias.x, controllerPos.y + bias.y, controllerPos.roomName);
+        //         let key = blockPos.x + "_" + blockPos.y;
+        //         if (existPosSet[key]) {
+        //             continue;
+        //         }
+        //
+        //         if (!checkPos(blockPos)) {
+        //             continue;
+        //         }
+        //         this.logInfo(`blockPos: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
+        //         // 没有建筑，不是墙
+        //         let structures = blockPos.lookFor(LOOK_STRUCTURES);
+        //         if (structures && structures.length > 0) {
+        //             continue;
+        //         }
+        //         this.logInfo(`blockPos2: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
+        //         if (new Room.Terrain(blockPos.roomName).get(blockPos.x, blockPos.y) == TERRAIN_MASK_WALL) {
+        //             continue;
+        //         }
+        //         this.logInfo(`blockPos3: ${blockPos.x} ${blockPos.y} ${blockPos.roomName}`);
+        //         return [{
+        //             spawnRoomName: curSpawnRoomName,
+        //             body: [MOVE],
+        //             memory: {
+        //                 module: this.moduleName,
+        //                 claim: {
+        //                     roomName: this.roomName,
+        //                     role: "block",
+        //                     workPos: blockPos
+        //                 }
+        //             },
+        //             num: 1,
+        //             configHash: "chaim-block"
+        //         }]
+        //     }
+        // }
         return [];
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {
     }
 
-
+    protected moveNormal(creep: Creep, pos: RoomPosition | { pos: RoomPosition }, range: number) {
+        creep.moveTo(pos, {
+            visualizePathStyle: {
+                stroke: '#ffffff'
+            },
+            range: range,
+            costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
+                if (roomName != this.roomName) {
+                    return;
+                }
+                for (let i = 0; i < 50; i++) {
+                    costMatrix.set(0, i, 255)
+                    costMatrix.set(49, i, 255)
+                    costMatrix.set(i, 0, 255)
+                    costMatrix.set(i, 49, 255)
+                }
+            }
+        });
+    }
 }

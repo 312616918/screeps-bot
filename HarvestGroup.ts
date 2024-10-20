@@ -1,7 +1,8 @@
 import {BaseGroup, CreepPartConfig, GroupMemory} from "./BaseGroup";
-import {roomConfigMap} from "./Config";
+import {directionBiasMap, roomConfigMap} from "./Config";
 import {SpawnConfig} from "./Spawn";
 import {Metric} from "./Metric";
+import {checkPos} from "./Util";
 import _ = require("lodash");
 
 export type HarvestMemory = {} & GroupMemory;
@@ -52,47 +53,44 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         })
     }
 
-
-    private getPartConfigByAuto(): CreepPartConfig {
-        if (this.roomFacility.isInLowEnergy()) {
-            return null;
+    protected getWorkPosList(): InnerPosition[] {
+        let config = roomConfigMap[this.roomName].harvest;
+        if (this.roomFacility.getCapacityEnergy() >= 50 * 5 + 300) {
+            return config.workPosList;
         }
-        let result: CreepPartConfig = {};
-        let energyAmount = this.roomFacility.getCapacityEnergy();
-        //5 work
-        if (energyAmount >= 5 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 5;
-            result.carryNum = 2;
-            result.moveNum = 2;
-        }
-        //10 work
-        if (energyAmount >= 10 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 10;
-            result.carryNum = 2;
-            result.moveNum = 2;
-        }
-        if (!result.workNum) {
-            return null;
-        }
-        return result;
-    }
-
-    private getPartConfigByConfig(): CreepPartConfig {
-        let result: CreepPartConfig = {};
-        let availableEnergy = this.roomFacility.getCapacityEnergy();
-        let availablePartNum = Math.floor((availableEnergy - 100) / 100);
-        result.workNum = Math.min(5, availablePartNum);
-        if (this.roomFacility.isInLowEnergy()) {
-            result.workNum = 2;
-            result.carryNum = 1;
-            result.moveNum = 1;
-        }
+        this.logInfo("getWorkPosList low capacity");
+        // 最多每个source3个
+        let result: InnerPosition[] = [];
+        this.roomFacility.getSourceList().forEach(source => {
+            // 周围8个位置
+            let tmpPosList = [];
+            for (let dir in directionBiasMap) {
+                let bias = directionBiasMap[dir];
+                let newPos = new RoomPosition(
+                    source.pos.x + bias.x,
+                    source.pos.y + bias.y,
+                    source.pos.roomName);
+                if (!checkPos(newPos)) {
+                    continue;
+                }
+                //验证地形
+                let terrain = newPos.lookFor(LOOK_TERRAIN)[0];
+                if (terrain == "wall") {
+                    continue;
+                }
+                tmpPosList.push(newPos);
+            }
+            if (tmpPosList.length > 3) {
+                tmpPosList = tmpPosList.slice(0, 3);
+            }
+            result = result.concat(tmpPosList);
+        })
         return result;
     }
 
     protected getSpawnConfigList(): SpawnConfig[] {
-        let config = roomConfigMap[this.roomName].harvest;
-        if (this.memory.creepNameList.length == config.workPosList.length) {
+        let workPosList = this.getWorkPosList();
+        if (this.memory.creepNameList.length == workPosList.length) {
             return [];
         }
         let partConfig = this.getPartConfigByAuto();
@@ -106,7 +104,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             _.times(partConfig.moveNum, () => MOVE));
 
         let spawnConfigList: SpawnConfig[] = [];
-        config.workPosList.forEach(pos => {
+        workPosList.forEach(pos => {
             let workPos = new RoomPosition(pos.x, pos.y, this.roomName);
             let source = workPos.findClosestByRange(FIND_SOURCES);
             spawnConfigList.push({
@@ -157,7 +155,7 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                 }
             }
 
-            delete creep.memory.harvest["workPos"];
+            delete creep.memory.harvest["workPosition"];
         }
 
 
@@ -171,7 +169,12 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
         }
 
         //采矿，节省cpu
-        if(!target.ticksToRegeneration || target.energy >= target.ticksToRegeneration * 10){
+        let ticks = 300;
+        if (target.ticksToRegeneration) {
+            ticks = target.ticksToRegeneration;
+        }
+        ticks = Math.min(ticks, creep.ticksToLive);
+        if (this.roomFacility.getController().level <= 1 || target.energy >= ticks * 10) {
             creep.harvest(target);
         }
 
@@ -216,6 +219,53 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {
+    }
+
+    private getPartConfigByAuto(): CreepPartConfig {
+        if (this.roomFacility.isInLowEnergy()) {
+            return null;
+        }
+        let result: CreepPartConfig = {};
+        let energyAmount = this.roomFacility.getCapacityEnergy();
+        result.workNum = 2;
+        result.carryNum = 1;
+        result.moveNum = 1;
+
+        //4 work
+        if (energyAmount >= 4 * 100 + 2 * 50 + 1 * 50) {
+            result.workNum = 4;
+            result.carryNum = 2;
+            result.moveNum = 1;
+        }
+        //5 work
+        if (energyAmount >= 5 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 5;
+            result.carryNum = 2;
+            result.moveNum = 2;
+        }
+        //10 work
+        if (energyAmount >= 10 * 100 + 2 * 50 + 2 * 50) {
+            result.workNum = 10;
+            result.carryNum = 2;
+            result.moveNum = 2;
+        }
+        if (!result.workNum) {
+            return null;
+        }
+        return result;
+    }
+
+    private getPartConfigByConfig(): CreepPartConfig {
+        let result: CreepPartConfig = {};
+        let availableEnergy = this.roomFacility.getCapacityEnergy();
+        let availablePartNum = Math.floor((availableEnergy - 100) / 100);
+        result.workNum = Math.min(5, availablePartNum);
+        if (this.roomFacility.isInLowEnergy()) {
+            result.workNum = 2;
+            result.carryNum = 1;
+            result.moveNum = 1;
+        }
+        return result;
     }
 
 }

@@ -1,7 +1,7 @@
 import {GroupCreepMemory} from "./BaseGroup";
 import {RoomMemory} from "./RoomController";
 import {CarryCreepMemory} from "./CarryGroup";
-import {MoveCreepMemory} from "./move";
+import {MoveCreepMemory, RemoteMoveCreepMemory} from "./move";
 import {HarvestCreepMemory} from "./HarvestGroup";
 import {UpgradeCreepMemory} from "./UpgradeGroup";
 import {RoomName} from "./Config";
@@ -11,6 +11,9 @@ import {ExpandMemory} from "./ExpandController";
 import {ClaimCreepMemory} from "./ClaimGroup";
 import {CarryCreepMemoryV2} from "./CarryGroupV2";
 import {MetricMemory} from "./Metric";
+import {RepairCreepMemory} from "./RepairGroup";
+import {DefenderCreepMemory} from "./DefenderGroup";
+import {RemoteCarryCreepMemory} from "./RemoteCarryGroup";
 
 export {}
 
@@ -18,6 +21,10 @@ export {}
 declare global {
     type CarryTaskType = "output" | "input" | "pickup";
     type ObjectWithPos = Structure | Creep | Ruin | Resource | Tombstone;
+    type ObjectWithStore = {
+        pos: RoomPosition;
+        store: StoreDefinition;
+    };
     // type CarryTaskType = "output" | "input" | "pickup";
     // enum RoomName{
     //     W2N18="W2N18",
@@ -60,6 +67,10 @@ declare global {
         expand: ExpandMemory;
         //监控
         metric: MetricMemory;
+        //二维码
+        codeDraw?:{
+            [id:string]:string
+        }
     }
 
     //creep内存分配
@@ -77,10 +88,18 @@ declare global {
         upgrade?: UpgradeCreepMemory;
         //移动属性
         move?: MoveCreepMemory;
+        //远程移动
+        remoteMove?: RemoteMoveCreepMemory;
         //扩张creep
         expand?: ExpandGroupCreepMemory;
         //占领
         claim?: ClaimCreepMemory;
+        //维修
+        repair?: RepairCreepMemory;
+        //保卫
+        defend?: DefenderCreepMemory;
+        //远程运输
+        remoteCarry?: RemoteCarryCreepMemory;
     }
 
     // type LabConfig = {
