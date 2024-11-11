@@ -5,8 +5,9 @@ import _ = require("lodash");
 export type RepairMemory = {} & GroupMemory;
 
 export type RepairCreepMemory = {
+    status : "idle" | "repair" | "withdraw" | "sleep",
     targetId?: string;
-    targetHits?: number;
+    sleepTick?: number;
 }
 
 export class RepairGroup extends BaseGroup<RepairMemory> {
@@ -25,9 +26,11 @@ export class RepairGroup extends BaseGroup<RepairMemory> {
         let spawnConfigList: SpawnConfig[] = [];
         spawnConfigList.push({
             body: body,
-            memory: {
+             memory: {
                 module: this.moduleName,
-                repair: {}
+                repair: {
+                    status: "idle",
+                }
             },
             num: 1
         });
@@ -36,43 +39,111 @@ export class RepairGroup extends BaseGroup<RepairMemory> {
 
     protected runEachCreep(creep: Creep) {
         let creepMemory = creep.memory.repair;
-        let target = Game.getObjectById<Structure>(creepMemory.targetId);
-        if (!target) {
-            target = this.getRepairStructure(creep);
-            if (!target) {
+        if(!creepMemory.status){
+            creepMemory.status="idle";
+        }
+
+
+        if(creepMemory.status=="sleep"){
+            if(!creepMemory.sleepTick || creepMemory.sleepTick<=0){
+                creepMemory.status="idle";
                 return;
             }
-            creepMemory.targetId = target.id;
-            creepMemory.targetHits = target.hits + 20000 * 1.2;
-        }
-        if (!creepMemory.targetHits) {
-            creepMemory.targetId = null;
+            creepMemory.sleepTick--;
             return;
         }
 
-        if (creep.pos.getRangeTo(target) > 3) {
-            this.move.reserveMove(creep, target.pos, 3);
-            return;
-        }
-        creep.repair(target);
-        if (target.hits >= target.hitsMax || target.hits >= creepMemory.targetHits) {
-            //还有资源，不允许切换目标
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0 && target.hits < target.hitsMax) {
+        if(creepMemory.status=="idle"){
+            // withdraw
+            if(creep.store.getUsedCapacity(RESOURCE_ENERGY)<=0){
+                let sourceList = [];
+                let linkList = this.roomFacility.getLinkList();
+                sourceList.push(...linkList);
+                if(this.roomFacility.getStorage()){
+                    sourceList.push(this.roomFacility.getStorage());
+                }
+                let sourceContainerList = this.roomFacility.getSourceContainerList();
+                sourceList.push(...sourceContainerList);
+
+                let distance = Infinity;
+                let target = null;
+                for(let source of sourceList) {
+                    if(source.store.getUsedCapacity(RESOURCE_ENERGY)<=100){
+                        continue;
+                    }
+                    let d = creep.pos.getRangeTo(source);
+                    if (d < distance) {
+                        distance = d;
+                        target = source;
+                    }
+                }
+                if(!target){
+                    this.logError(`no source in ${this.roomName}`);
+                    creepMemory.status = "sleep";
+                    creepMemory.sleepTick = 100;
+                    return;
+                }
+                creepMemory.status = "withdraw";
+                creepMemory.targetId = target.id;
                 return;
             }
-            creep.memory.repair.targetId = null;
+            //repair
+            let target = this.getRepairStructure(creep);
+            if(!target){
+                this.logError(`no target in ${this.roomName}`);
+                creepMemory.status = "sleep";
+                creepMemory.sleepTick = 100;
+                return;
+            }
+            creepMemory.status = "repair";
+            creepMemory.targetId = target.id;
+            // creepMemory.targetHits = target.hits + 20000 * 1.2;
+            return;
         }
-        let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
-        if (leftRate < 0.5) {
-            this.roomFacility.submitEvent({
-                type: "needCarry",
-                subType: "input",
-                resourceType: RESOURCE_ENERGY,
-                objId: creep.id,
-                amount: creep.store.getCapacity(),
-                objType: "repair",
-            })
+
+        if(creepMemory.status=="withdraw"){
+            if(creep.store.getFreeCapacity()<=0){
+                creepMemory.status = "idle";
+                return;
+            }
+            let target = Game.getObjectById<Structure>(creepMemory.targetId);
+            if(!target) {
+                this.logError(`no withdraw target in ${this.roomName}`);
+                creepMemory.status = "idle";
+                return;
+            }
+            if(target instanceof StructureWall){
+                this.logError(`no withdraw target in ${this.roomName}`);
+                creepMemory.status = "idle";
+                return;
+            }
+            if (creep.pos.getRangeTo(target) > 1) {
+                this.move.reserveMove(creep, target.pos, 1);
+                return;
+            }
+            creep.withdraw(target, RESOURCE_ENERGY);
+            return;
         }
+
+        if(creepMemory.status=="repair"){
+            if(creep.store.getUsedCapacity()<=0) {
+                creepMemory.status = "idle";
+                return;
+            }
+            let target = Game.getObjectById<Structure>(creepMemory.targetId);
+            if(!target) {
+                this.logError(`no repair target in ${this.roomName}`);
+                creepMemory.status = "idle";
+                return;
+            }
+            if (creep.pos.getRangeTo(target) > 3) {
+                this.move.reserveMove(creep, target.pos, 3);
+                return;
+            }
+            creep.repair(target);
+            return;
+        }
+        this.logError(`unknown status ${creepMemory.status} in ${this.roomName}`);
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {
@@ -122,7 +193,7 @@ export class RepairGroup extends BaseGroup<RepairMemory> {
         if (Game.time % 10 != 0) {
             return null;
         }
-        if (this.roomFacility.getController().level < 3) {
+        if (this.roomFacility.getLevel() < 3) {
             return null;
         }
         // 资源不足

@@ -3,7 +3,9 @@ import {roomConfigMap, RoomName} from "./Config";
 import {SpawnConfig} from "./Spawn";
 import _ = require("lodash");
 
-export type UpgradeMemory = {} & GroupMemory;
+export type UpgradeMemory = {
+    lastUpgradeTime?: number;
+} & GroupMemory;
 
 export type UpgradeCreepMemory = {
     targetId?: string;
@@ -20,20 +22,54 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     protected moduleName: string = "upgrade";
 
     protected getSpawnConfigList(): SpawnConfig[] {
-        if (this.memory.creepNameList.length >= 4) {
+        if (Game.time % 10 != 0) {
             return [];
         }
+
+        // 全力升级主房间
+        let storage = this.roomFacility.getStorage();
+        // if (this.roomName != RoomName.E9N9
+        //     && this.roomFacility.getLevel() >= 7
+        //     && storage
+        //     && storage.store.getUsedCapacity(RESOURCE_ENERGY) < 800000) {
+        //     // 10k tick升级一次，保证不降级
+        //     if (!this.memory.lastUpgradeTime) {
+        //         this.memory.lastUpgradeTime = Game.time;
+        //     }
+        //     if (Game.time - this.memory.lastUpgradeTime < 10000 && this.roomFacility.getController().ticksToDowngrade > 20000) {
+        //         return [];
+        //     }
+        // }
+
+        // 8级别不掉级别即可
+        if (this.roomFacility.getLevel() >= 8) {
+            if (storage && storage.store.getUsedCapacity(RESOURCE_ENERGY) < 800000) {
+                // 10k tick升级一次，保证不降级
+                if (!this.memory.lastUpgradeTime) {
+                    this.memory.lastUpgradeTime = Game.time;
+                }
+                if (Game.time - this.memory.lastUpgradeTime < 10000 && this.roomFacility.getController().ticksToDowngrade > 20000) {
+                    return [];
+                }
+            }
+        }
+
 
         let partConfig = this.getPartConfigByAuto();
         if (!partConfig) {
             partConfig = this.getPartConfigByConfig();
         }
-        if (this.roomFacility.getController().level < 3) {
+        if (this.roomFacility.getLevel() < 3) {
             partConfig.autoNum = 4;
             if (this.roomFacility.getSourceList().length == 1) {
                 partConfig.autoNum = 2;
             }
         }
+        // if (this.roomName == RoomName.E9N9
+        //     && storage
+        //     && storage.store.getUsedCapacity(RESOURCE_ENERGY) > 500000) {
+        //     partConfig.autoNum = 6;
+        // }
 
         let body: BodyPartConstant[] = [];
         body = body.concat(_.times(partConfig.workNum, () => WORK),
@@ -101,7 +137,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     }
 
     protected runEachCreep(creep: Creep) {
-        var target = Game.getObjectById<StructureController>(creep.memory.upgrade.targetId);
+        let target = Game.getObjectById<StructureController>(creep.memory.upgrade.targetId);
         if (!target) {
             target = this.roomFacility.getController();
             creep.memory.upgrade.targetId = target.id;
@@ -118,7 +154,8 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             if (linkRecord.distance <= 1) {
                 creep.memory.upgrade.inputObjId = linkRecord.objId;
             }
-            if (this.roomFacility.getRoom().storage && workPos.getRangeTo(this.roomFacility.getRoom().storage) <= 1) {
+            let storage = this.roomFacility.getStorage();
+            if (storage && workPos.getRangeTo(storage) <= 1) {
                 creep.memory.upgrade.inputObjId = this.roomFacility.getRoom().storage.id;
             }
             if (this.roomFacility.getTowerList().length > 0) {
@@ -131,6 +168,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             delete creep.memory.upgrade["workPosition"];
         }
         creep.upgradeController(target);
+        this.memory.lastUpgradeTime = Game.time;
         if (creep.memory.upgrade.towerIdList && Game.time % 2 == 0) {
             creep.memory.upgrade.towerIdList.forEach(towerId => {
                 let tower = Game.getObjectById<StructureTower>(towerId);
@@ -155,11 +193,15 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
                 return;
             }
         }
-        // // 长期从容器获取，不额外新增carry任务
-        // let lastTime = creep.memory.upgrade.lastInputTime;
-        // if (lastTime && Game.time - lastTime < 100 && this.roomName != RoomName.E9N9) {
+        // if (this.roomName == RoomName.E9N9) {
         //     return;
         // }
+
+        // 长期从容器获取，不额外新增carry任务
+        let lastTime = creep.memory.upgrade.lastInputTime;
+        if (lastTime && Game.time - lastTime < 100 && this.roomFacility.getLevel() >= 6) {
+            return;
+        }
 
         let leftRate = creep.store.getUsedCapacity() / creep.store.getCapacity();
         if (leftRate < 0.5) {
@@ -178,7 +220,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
     }
 
     private getPartConfigByAuto(): CreepPartConfig {
-        if (this.roomFacility.getController().level == 8) {
+        if (this.roomFacility.getLevel() == 8) {
             return null;
         }
         if (this.roomFacility.isInLowEnergy()) {
@@ -224,10 +266,6 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             return null;
         }
 
-        if (this.roomName == RoomName.E3N11 || this.roomName == RoomName.E4N13) {
-            result.autoNum *= 2;
-        }
-
         //单矿房减半
         if (this.roomFacility.getSourceList().length < 2) {
             if (result.autoNum > 1) {
@@ -243,7 +281,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             result.autoNum *= 2;
         }
         // 资源不足，只保证最低限度消耗
-        if (this.roomFacility.getController().level > 5
+        if (this.roomFacility.getLevel() > 5
             && this.roomFacility.getStorage()
             && this.roomFacility.getStorage().store.getUsedCapacity(RESOURCE_ENERGY) < 200000) {
             result.workNum = 2;
@@ -251,7 +289,7 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
             result.autoNum = 1;
         }
         // if (!this.roomFacility.getStorage()
-        //     && this.roomFacility.getController().level >= 4) {
+        //     && this.roomFacility.getLevel() >= 4) {
         //     result.workNum = 2;
         //     result.moveNum = 1;
         //     result.autoNum = 1;

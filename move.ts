@@ -305,13 +305,13 @@ export class Move {
         if (sp.length == 1) {
             pos = new RoomPosition(25, 25, sp[0]);
             if (creep.pos.roomName != sp[0]) {
-                this.moveNormal(creep, pos, 1);
+                this.moveNormal(creep, pos, 1, 50);
                 return;
             }
         } else if (sp.length == 3) {
             pos = new RoomPosition(parseInt(sp[1]), parseInt(sp[2]), sp[0]);
             if (creep.pos.getRangeTo(pos) > 1) {
-                this.moveNormal(creep, pos, 1);
+                this.moveNormal(creep, pos, 1, 50);
                 return;
             }
         } else {
@@ -327,12 +327,13 @@ export class Move {
         console.log(`<span style="color: #ff0000;">[ERROR]</span> [${this.roomName}] [MOVE]}]${msg.join(" ")}`)
     }
 
-    protected moveNormal(creep: Creep, pos: RoomPosition | { pos: RoomPosition }, range: number) {
+    protected moveNormal(creep: Creep, pos: RoomPosition | { pos: RoomPosition }, range: number, cacheTick = 5) {
         creep.moveTo(pos, {
             visualizePathStyle: {
                 stroke: '#ffffff'
             },
             range: range,
+            reusePath: cacheTick,
             costCallback(roomName: string, costMatrix: CostMatrix): void | CostMatrix {
                 // if (roomName == "W2N19"||roomName=="W7N15") {
                 //     for (let i = 0; i < 50; i++) {

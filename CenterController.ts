@@ -1,27 +1,30 @@
-import {availableRoomName, RoomName, TerminalConfig, terminalConfigMap} from "./Config";
+import {availableRoomName, DISPATCH_CONFIG_LIST, RoomName} from "./Config";
 import {RoomController} from "./RoomController";
 import {ExpandController} from "./ExpandController";
 import {Metric} from "./Metric";
 import _ = require("lodash");
+import {Observer} from "./Observer";
 
 
 export class CenterController {
     public run() {
         let roomControllerList = this.getRoomControllerList();
+        Observer.initEachTick();
         for (let i = 0; i < roomControllerList.length; i++) {
             let roomController = roomControllerList[i];
             try {
                 let bucket = Game.cpu.bucket;
-                //占领中，全速运行
-                let fac = roomController.getRoomFacility();
-                if (bucket < 200 && i > 2 && !fac.needChaim() && !fac.isRunningExpand()) {
+                if (bucket < 1000 && i > 2 && !this.mustKeepRunning(roomController)) {
                     Metric.recordCount(1, "type", "room_stop", "room", roomController.getRoomName())
                     continue;
                 }
                 let startTimestamp = (new Date()).valueOf();
+                let cpuUsed = Game.cpu.getUsed();
                 roomController.run();
                 let cost = (new Date()).valueOf() - startTimestamp;
+                let cpuCost = Game.cpu.getUsed() - cpuUsed;
                 Metric.recordGauge(cost, "type", "room_time_cost", "room", roomController.getRoomName());
+                Metric.recordGauge(cpuCost, "type", "room_cpu_cost", "room", roomController.getRoomName());
             } catch (e) {
                 console.log(`room ${roomController.getRoomName()} error`);
                 console.log(e.stack);
@@ -30,17 +33,39 @@ export class CenterController {
         this.deleteDeadCreep();
         this.runExpand();
         this.runPixel();
-        // this.runTerminal(roomControllerList);
+        this.runTerminal(roomControllerList);
         this.drawCode();
         this.clearLossRoomMemory();
     }
 
-    private clearLossRoomMemory(){
-        if(Game.time % 1000 !=0){
+    private mustKeepRunning(roomController: RoomController): boolean {
+        // 特殊房间
+        if (roomController.getRoomName() == RoomName.E9N9) {
+            return true;
+        }
+        // 战争
+        let fac = roomController.getRoomFacility();
+        //占领中，全速运行
+        if (fac.isRunningExpand()) {
+            return true;
+        }
+        //防御中
+        if (fac.getHostileCreepList().length > 0) {
+            return true;
+        }
+        //占领中
+        if (fac.needChaim()) {
+            return true;
+        }
+        return false;
+    }
+
+    private clearLossRoomMemory() {
+        if (Game.time % 1000 != 0) {
             return;
         }
         let memoryRooms = Object.keys(Memory.roomData);
-        for(let roomName of memoryRooms) {
+        for (let roomName of memoryRooms) {
             if (!availableRoomName.includes(<RoomName>roomName)) {
                 console.log(`delete room ${roomName}`);
                 delete Memory.roomData[roomName];
@@ -114,76 +139,117 @@ export class CenterController {
     }
 
     private runTerminal(roomControllerList: RoomController[]) {
-        let sendInRoomController: RoomController;
-        let sendInConfig: TerminalConfig;
-        roomControllerList.forEach(roomController => {
-            let config = terminalConfigMap[roomController.getRoomName()];
-            if (!config) {
-                return;
-            }
-            if (config.type == "input") {
-                sendInRoomController = roomController;
-                sendInConfig = config;
-            }
-        })
-
-        if (!sendInRoomController) {
+        if (Game.time % 50 != 0) {
             return;
         }
-
-        let sendInTerminal = sendInRoomController.getRoomFacility().getTerminal();
-        let sendInStorage = sendInRoomController.getRoomFacility().getStorage();
-        if (!sendInTerminal || !sendInStorage) {
-            return;
-        }
-
-        roomControllerList.forEach(roomController => {
-            let config = terminalConfigMap[roomController.getRoomName()];
-            if (!config) {
+        // terminal至少要有20k energy
+        roomControllerList.forEach(controller => {
+            let terminal = controller.getRoomFacility().getTerminal();
+            if (!terminal) {
                 return;
             }
-            if (config.type != "output") {
+            let amount = 20000 - terminal.store.getUsedCapacity(RESOURCE_ENERGY);
+            if (amount <= 0) {
                 return;
             }
-            let terminal = roomController.getRoomFacility().getTerminal();
-            let storage = roomController.getRoomFacility().getStorage();
-            if (!terminal || !storage) {
-                return;
-            }
-            if (storage.store.getUsedCapacity("energy") <= config.maxStorageEnergy) {
-                return;
-            }
-            if (terminal.store.getUsedCapacity("energy") >= 50000 && sendInTerminal.store.getFreeCapacity("energy") >= 50000) {
-                let sendAmount = Math.min(terminal.store.getUsedCapacity("energy"), 50000 / 2);
-                let res = terminal.send("energy", sendAmount, sendInRoomController.getRoomName());
-                console.log(`send energy ${sendAmount} ${res}`)
-                return;
-            }
-            if (terminal.store.getFreeCapacity("energy") < 10000) {
-                return;
-            }
-            roomController.getRoomFacility().submitEvent({
+            controller.getRoomFacility().submitEvent({
                 type: "needCarry",
                 subType: "input",
-                resourceType: "energy",
+                resourceType: RESOURCE_ENERGY,
                 objId: terminal.id,
-                amount: 50000,
+                amount: amount,
                 objType: "terminal"
             })
         })
 
-        if (sendInTerminal.store.getUsedCapacity("energy") > 1000
-            && sendInStorage.store.getFreeCapacity("energy") > 1000) {
-            sendInRoomController.getRoomFacility().submitEvent({
+        //处理传输配置
+        let controllerMap = {};
+        roomControllerList.forEach(roomController => {
+            controllerMap[roomController.getRoomName()] = roomController;
+        });
+
+        let sendMaxBatch = 10000;
+        DISPATCH_CONFIG_LIST.forEach(item => {
+            // 是否需要传输
+            let targetController = controllerMap[item.targetRoomName];
+            if (!targetController) {
+                return;
+            }
+            let terminal = targetController.getRoomFacility().getTerminal();
+            let storage = targetController.getRoomFacility().getStorage();
+            if (!terminal || !storage) {
+                return;
+            }
+
+            // 转移多余资源
+            let limitAmount = item.targetTerminalAmount;
+            if (item.resourceType == RESOURCE_ENERGY) {
+                limitAmount = Math.min(20000, item.targetTerminalAmount) + 10000;
+            }
+            let terminalAmount = terminal.store.getUsedCapacity(item.resourceType);
+            let outAmount = terminalAmount - limitAmount;
+            if (outAmount > 0 && storage.store.getFreeCapacity() > 100000) {
+                targetController.getRoomFacility().submitEvent({
                     type: "needCarry",
                     subType: "output",
-                    resourceType: "energy",
-                    objId: sendInTerminal.id,
-                    amount: sendInTerminal.store.getUsedCapacity("energy"),
+                    resourceType: item.resourceType,
+                    objId: terminal.id,
+                    amount: outAmount,
                     objType: "terminal"
+                })
+                return;
+            }
+
+            // 空间不足
+            if (terminal.store.getFreeCapacity() <= 100000
+                || storage.store.getFreeCapacity() <= 100000) {
+                return;
+            }
+            // 总量完成
+            let amount = terminalAmount + storage.store.getUsedCapacity(item.resourceType);
+            if (amount >= item.targetAmount) {
+                return;
+            }
+
+
+            // 开始传输
+            for (let roomName of availableRoomName) {
+                if (roomName == item.targetRoomName) {
+                    continue;
                 }
-            )
-        }
+                let sourceController = controllerMap[roomName];
+                if (!sourceController) {
+                    continue;
+                }
+                let sourceTerminal = sourceController.getRoomFacility().getTerminal();
+                let sourceStorage = sourceController.getRoomFacility().getStorage();
+                if (!sourceTerminal || !sourceStorage) {
+                    continue;
+                }
+                let sourceTerminalAmount = terminal.store.getUsedCapacity(item.resourceType);
+                let sourceAmount = sourceTerminalAmount + sourceStorage.store.getUsedCapacity(item.resourceType);
+                if (sourceAmount <= item.sourceKeepAmount) {
+                    continue;
+                }
+                // terminal有资源，直接send
+                let sendAmount = Math.min(amount, sendMaxBatch);
+                let cost = Game.market.calcTransactionCost(sendAmount, roomName, item.targetRoomName);
+                if (sourceTerminalAmount > sendAmount + cost) {
+                    sourceTerminal.send(item.resourceType, sendAmount, item.targetRoomName);
+                    console.log(`send ${sendAmount} ${item.resourceType} from ${roomName} to ${item.targetRoomName}`);
+                    continue;
+                }
+                // terminal没有资源，添加任务
+                sourceController.getRoomFacility().submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    resourceType: item.resourceType,
+                    objId: sourceTerminal.id,
+                    amount: sendAmount + cost,
+                    objType: "terminal"
+                })
+            }
+        });
     }
 
     private drawCode() {

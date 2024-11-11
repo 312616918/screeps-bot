@@ -14,6 +14,8 @@ import {TmpMemory} from "./TmpMemory";
 import {RepairGroup, RepairMemory} from "./RepairGroup";
 import {DefenderGroup, DefenderMemory} from "./DefenderGroup";
 import {RemoteCarryGroup, RemoteCarryMemory} from "./RemoteCarryGroup";
+import {MineralHarvestGroup, MineralHarvestMemory} from "./MineralHarvestGroup";
+import {PowerHarvestGroup, PowerHarvestMemory} from "./PowerHarvestGroup";
 
 
 export type RoomMemory = {
@@ -28,6 +30,8 @@ export type RoomMemory = {
     repair: RepairMemory;
     defend: DefenderMemory;
     remoteCarry: RemoteCarryMemory;
+    mineralHarvest: MineralHarvestMemory;
+    powerHarvest: PowerHarvestMemory;
 }
 
 type StructureWithStore = {
@@ -42,6 +46,7 @@ export class RoomController {
     private roomFacility: RoomFacility;
     private move: Move;
     private harvestGroup: HarvestGroup;
+    private mineralHarvestGroup: MineralHarvestGroup;
     private upgradeGroup: UpgradeGroup;
     private carryGroup: CarryGroup;
     private carryGroupV2: CarryGroupV2;
@@ -50,6 +55,7 @@ export class RoomController {
     private repairGroup: RepairGroup;
     private defenderGroup: DefenderGroup;
     private remoteCarryGroup: RemoteCarryGroup;
+    private powerHarvestGroup: PowerHarvestGroup;
     private spawn: Spawn;
     private chaimMode: boolean;
 
@@ -79,6 +85,7 @@ export class RoomController {
         }
 
         this.harvestGroup = new HarvestGroup(this.move, this.roomMemory.harvest, this.roomFacility, this.spawn);
+        this.mineralHarvestGroup = new MineralHarvestGroup(this.move, this.roomMemory.mineralHarvest, this.roomFacility, this.spawn);
         this.upgradeGroup = new UpgradeGroup(this.move, this.roomMemory.upgrade, this.roomFacility, this.spawn);
         this.repairGroup = new RepairGroup(this.move, this.roomMemory.repair, this.roomFacility, this.spawn);
         // if (this.roomName == "W2N22"||this.roomName == "W1N15") {
@@ -98,6 +105,7 @@ export class RoomController {
         this.buildGroup = new BuilderGroup(this.move, this.roomMemory.build, this.roomFacility, this.spawn);
         this.defenderGroup = new DefenderGroup(this.move, this.roomMemory.defend, this.roomFacility, this.spawn);
         this.remoteCarryGroup = new RemoteCarryGroup(this.move, this.roomMemory.remoteCarry, this.roomFacility, this.spawn);
+        this.powerHarvestGroup = new PowerHarvestGroup(this.move, this.roomMemory.powerHarvest, this.roomFacility, this.spawn);
     }
 
     public run() {
@@ -121,8 +129,10 @@ export class RoomController {
         this.handleEvent();
 
         this.runTower();
+        this.runPowerSpawn();
 
         this.harvestGroup.run();
+        this.mineralHarvestGroup.run();
         this.upgradeGroup.run();
         this.buildGroup.run();
         this.repairGroup.run();
@@ -136,6 +146,8 @@ export class RoomController {
             this.carryGroup.visual();
         }
         this.remoteCarryGroup.run();
+        this.powerHarvestGroup.run();
+
         this.spawn.spawnCreeps();
         this.move.moveAll();
         this.roomFacility.visualize();
@@ -230,15 +242,31 @@ export class RoomController {
         this.roomFacility.getSourceContainerList().forEach(container => {
             for (let resourceType in container.store) {
                 let amount = container.store[resourceType];
-                if (amount > 100) {
+                if (amount > 1000) {
                     this.roomFacility.submitEvent({
                         type: "needCarry",
                         subType: "output",
                         objId: container.id,
                         resourceType: resourceType as ResourceConstant,
-                        amount: amount,
+                        amount: 1000,
                         objType: "source"
                     })
+                }
+            }
+        });
+
+        this.roomFacility.getMineralContainerList().forEach(container => {
+            for (let resourceType in container.store) {
+                let amount = container.store[resourceType];
+                if (amount > 1000) {
+                    this.roomFacility.submitEvent({
+                        type: "needCarry",
+                        subType: "output",
+                        objId: container.id,
+                        resourceType: resourceType as ResourceConstant,
+                        amount: 1000,
+                        objType: "mineral"
+                    });
                 }
             }
         });
@@ -270,6 +298,24 @@ export class RoomController {
                 });
             }
         })
+        this.roomFacility.getTombsList().forEach(tombs => {
+            for (let storeKey in tombs.store) {
+                let resourceType = <ResourceConstant>storeKey;
+                let amount = tombs.store[resourceType];
+                if (amount <= 0) {
+                    continue;
+                }
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "output",
+                    objId: tombs.id,
+                    resourceType: resourceType,
+                    amount: amount,
+                    objType: "tombstone"
+                })
+            }
+        })
+
         let storage = this.roomFacility.getStorage();
         this.roomFacility.getRuinList().forEach(ruin => {
             for (let typeStr in ruin.store) {
@@ -299,7 +345,8 @@ export class RoomController {
                 && structure.structureType != STRUCTURE_LINK
                 && structure.structureType != STRUCTURE_TERMINAL
                 && structure.structureType != STRUCTURE_FACTORY
-                && structure.structureType != STRUCTURE_LAB) {
+                && structure.structureType != STRUCTURE_LAB
+                && structure.structureType != STRUCTURE_POWER_SPAWN) {
                 return false;
             }
 
@@ -315,35 +362,127 @@ export class RoomController {
                     objType: "hostile_structure"
                 });
             }
+            if ((structure instanceof StructureTerminal || structure instanceof StructureFactory) && this.roomFacility.getStorage()) {
+                for (let key in structure.store) {
+                    let resourceType = <ResourceConstant>key;
+                    let amount = structure.store.getUsedCapacity(resourceType);
+                    if (amount > 0) {
+                        this.roomFacility.submitEvent({
+                            type: "needCarry",
+                            subType: "output",
+                            objId: structure.id,
+                            resourceType: resourceType,
+                            amount: amount,
+                            objType: "hostile_structure"
+                        });
+                    }
+                }
+            }
         })
+
+        let powerSpawn = this.roomFacility.getPowerSpawn();
+        if (powerSpawn != null) {
+            let energyAmount = powerSpawn.store.getFreeCapacity(RESOURCE_ENERGY);
+            if (energyAmount > 2000) {
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    objId: powerSpawn.id,
+                    resourceType: RESOURCE_ENERGY,
+                    amount: energyAmount,
+                    objType: "power_spawn"
+                });
+            }
+            let powerAmount = powerSpawn.store.getFreeCapacity(RESOURCE_POWER);
+            if (powerAmount > 90) {
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    objId: powerSpawn.id,
+                    resourceType: RESOURCE_POWER,
+                    amount: powerAmount,
+                    objType: "power_spawn"
+                });
+            }
+        }
+
+        let nuker = this.roomFacility.getNuker();
+        if (nuker != null) {
+            let energyAmount = nuker.store.getFreeCapacity(RESOURCE_ENERGY);
+            if (energyAmount > 0) {
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    objId: nuker.id,
+                    resourceType: RESOURCE_ENERGY,
+                    amount: energyAmount,
+                    objType: "nuker"
+                });
+            }
+            let gAmount = nuker.store.getFreeCapacity(RESOURCE_GHODIUM);
+            if (gAmount > 0) {
+                this.roomFacility.submitEvent({
+                    type: "needCarry",
+                    subType: "input",
+                    objId: nuker.id,
+                    resourceType: RESOURCE_GHODIUM,
+                    amount: gAmount,
+                    objType: "nuker"
+                });
+            }
+        }
 
         // // 临时转移
         // if (Game.time % 10 == 0 && this.roomName == RoomName.E11N11) {
         //     let storage = Game.getObjectById<StructureStorage>("664a22e7750d2d1f2f3c5769");
-        //     let terminal = Game.getObjectById<StructureTerminal>("66507838659b91050b2f157b");
-        //     if (storage && terminal) {
-        //         for (let key in terminal.store) {
+        //     let terminal = Game.getObjectById<StructureTerminal>("6717e6feb939497aae2864c0");
+        //     if (storage && terminal && terminal.store.getFreeCapacity()>10000) {
+        //         let handledResouurceTypeDict = {};
+        //         for (let key in storage.store) {
         //             let resourceType = <ResourceConstant>key;
-        //             let amount = terminal.store.getUsedCapacity(resourceType);
+        //             let amount = storage.store.getUsedCapacity(resourceType);
+        //             handledResouurceTypeDict[resourceType] = true;
         //             if (amount > 0) {
         //                 this.roomFacility.submitEvent({
         //                     type: "needCarry",
         //                     subType: "output",
-        //                     objId: terminal.id,
+        //                     objId: storage.id,
         //                     resourceType: resourceType,
-        //                     amount: 0,
-        //                     objType: "terminal"
+        //                     amount: Math.min(amount, 2000),
+        //                     objType: "storage"
         //                 });
         //                 this.roomFacility.submitEvent({
         //                     type: "needCarry",
         //                     subType: "input",
-        //                     objId: storage.id,
+        //                     objId: terminal.id,
         //                     resourceType: resourceType,
-        //                     amount: 0,
-        //                     objType: "storage"
+        //                     amount: amount,
+        //                     objType: "terminal"
         //                 });
         //             }
         //         }
+        //         this.roomMemory.carry_v2.creepNameList.forEach(name=>{
+        //             let creep = Game.creeps[name];
+        //             if(creep && creep.store.getUsedCapacity()>0) {
+        //                 for (let key in creep.store) {
+        //                     let resourceType = <ResourceConstant>key;
+        //                     if(resourceType in handledResouurceTypeDict) {
+        //                         continue;
+        //                     }
+        //                     if(resourceType==RESOURCE_ENERGY){
+        //                         continue;
+        //                     }
+        //                     this.roomFacility.submitEvent({
+        //                         type: "needCarry",
+        //                         subType: "input",
+        //                         objId: terminal.id,
+        //                         resourceType: resourceType,
+        //                         amount: 20000,
+        //                         objType: "terminal"
+        //                     });
+        //                 }
+        //             }
+        //         })
         //     }
         // }
     }
@@ -365,6 +504,9 @@ export class RoomController {
                     if (target instanceof StructureExtension || target instanceof StructureTower) {
                         priority = 4;
                     }
+                }
+                if (event.objType == "terminal") {
+                    priority = -2;
                 }
                 if (event.objType == "builder") {
                     priority = 2;
@@ -417,6 +559,11 @@ export class RoomController {
                 creepNameList: []
             }
         }
+        if (!this.roomMemory.mineralHarvest) {
+            this.roomMemory.mineralHarvest = {
+                creepNameList: []
+            }
+        }
         if (!this.roomMemory.upgrade) {
             this.roomMemory.upgrade = {
                 creepNameList: []
@@ -464,6 +611,30 @@ export class RoomController {
                 singleCost: 0
             }
         }
+        if (!this.roomMemory.powerHarvest) {
+            this.roomMemory.powerHarvest = {
+                creepNameList: []
+            }
+        }
+    }
+
+    private runPowerSpawn(): void {
+        // if(Game.time % 2 !=0){
+        //     return;
+        // }
+        let powerSpawn = this.roomFacility.getPowerSpawn();
+        if (!powerSpawn) {
+            return;
+        }
+        let storage = this.roomFacility.getStorage();
+        if (!storage) {
+            return;
+        }
+        let amount = storage.store.getUsedCapacity(RESOURCE_ENERGY);
+        if (amount < 400000) {
+            return;
+        }
+        powerSpawn.processPower();
     }
 
     private safeMode(): void {

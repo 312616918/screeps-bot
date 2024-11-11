@@ -51,7 +51,7 @@ export class BuilderGroup extends BaseGroup<BuildMemory> {
                     targetId: sites[0].id,
                 }
             },
-            num: 2
+            num: 1
         }];
     }
 

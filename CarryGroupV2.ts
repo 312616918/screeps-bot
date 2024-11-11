@@ -119,7 +119,14 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         // link status
         if (this.carryConfig) {
             this.carryConfig.link.forEach(c => {
-                room.visual.text(c.status, c.pos.x, c.pos.y, {})
+                let status = this.memory.linkTaskMap[c.linkId];
+                let text = `${c.status}`;
+                if (status) {
+                    text = `${c.status} ${status.status}`;
+                }
+                room.visual.text(text, c.pos.x, c.pos.y, {
+                    font: 0.25
+                })
             })
         }
     }
@@ -174,6 +181,32 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         if (!this.carryConfig) {
             return;
         }
+
+        for (let linkId in this.memory.linkTaskMap) {
+            let link = Game.getObjectById<StructureLink>(linkId);
+            if (!link) {
+                continue;
+            }
+            let status = this.memory.linkTaskMap[linkId];
+            if (status.status == "wait_input") {
+                let amount = link.store.getFreeCapacity(RESOURCE_ENERGY);
+                if (amount == 0) {
+                    status.status = "idle";
+                } else {
+                    this.logInfo(`link ${link.id} addCarryReq ${amount}`)
+                    this.addCarryReq(link, "input", RESOURCE_ENERGY, amount, 0);
+                }
+                continue;
+            }
+            if (status.status == "wait_output") {
+                if (link.store.getUsedCapacity() == 0) {
+                    status.status = "idle";
+                }
+                continue;
+            }
+        }
+
+
         // 检查所有link状态
         let inLinkList: StructureLink[] = [];
         let outLinkList: StructureLink[] = [];
@@ -230,6 +263,10 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     continue;
                 }
                 bothLink.transferEnergy(link);
+                let bothStatus = this.memory.linkTaskMap[bothLink.id];
+                if (bothStatus) {
+                    bothStatus.status = "idle";
+                }
                 return;
             }
             // 请求both
@@ -244,7 +281,11 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 linkStatus.lastReqTime = Game.time;
                 continue;
             }
-            if (Game.time - linkStatus.lastReqTime < 50) {
+            let tickLimit = 20;
+            if (this.roomName == RoomName.E9N9) {
+                tickLimit = 1;
+            }
+            if (Game.time - linkStatus.lastReqTime < tickLimit) {
                 continue;
             }
             // 正式请求
@@ -359,19 +400,22 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
 
 
     protected getSpawnConfigListByAuto(): SpawnConfig[] {
+        let partNum = 0;
+        let startNum = 8;
+        let num = 2;
+        // if(this.roomName == RoomName.E9N9){
+        //     num = 3;
+        // }
+        if (this.memory.creepNameList.length >= num) {
+            return [];
+        }
         if (this.roomFacility.isInLowEnergy()) {
             return null;
         }
         let energyAmount = this.roomFacility.getCapacityEnergy();
         // 没有carry，用可用energy
-        if(this.memory.creepNameList.length==0){
+        if (this.memory.creepNameList.length == 0) {
             energyAmount = this.roomFacility.getAvailableEnergy();
-        }
-        let partNum = 0;
-        let startNum = 8;
-        let num = 2;
-        if(this.roomName==RoomName.E9N6){
-            num = 6;
         }
         if (this.roomFacility.isRunningExpand()) {
             num *= 2;
@@ -385,9 +429,6 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         }
         if (partNum <= 0) {
             return null;
-        }
-        if(this.roomName == RoomName.E31N9){
-            partNum = 1;
         }
         let body = [].concat(_.times(partNum * 2, () => CARRY),
             _.times(partNum, () => MOVE));
@@ -489,7 +530,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
             if (res == ERR_NOT_IN_RANGE) {
                 return;
             }
-            if(res!=OK){
+            if (res != OK) {
                 this.logError(`error: ${creepName} transfer error ${res}`)
             }
             //increase需求需要持续供应一段时间
@@ -500,14 +541,14 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     if (!creepMemory.beginIncreaseTick) {
                         creepMemory.beginIncreaseTick = Game.time;
                     }
-                    if(!creepMemory.lastIncreaseChangeTick){
+                    if (!creepMemory.lastIncreaseChangeTick) {
                         creepMemory.lastIncreaseChangeTick = Game.time;
                     }
                     // 最多供应300周期
                     let isInTickRange = Game.time - creepMemory.beginIncreaseTick < 300;
                     // 最近5tick必须有变化
                     let hasChange = true;
-                    if(Game.time-creepMemory.lastIncreaseChangeTick>5 && creepMemory.lastIncreaseAmount==targetIncreaseAmount ){
+                    if (Game.time - creepMemory.lastIncreaseChangeTick > 5 && creepMemory.lastIncreaseAmount == targetIncreaseAmount) {
                         hasChange = false;
                     }
                     creepMemory.lastIncreaseAmount = targetIncreaseAmount;

@@ -14,6 +14,8 @@ import {MetricMemory} from "./Metric";
 import {RepairCreepMemory} from "./RepairGroup";
 import {DefenderCreepMemory} from "./DefenderGroup";
 import {RemoteCarryCreepMemory} from "./RemoteCarryGroup";
+import {MineralHarvestCreepMemory} from "./MineralHarvestGroup";
+import {PowerHarvestCreepMemory} from "./PowerHarvestGroup";
 
 export {}
 
@@ -100,6 +102,16 @@ declare global {
         defend?: DefenderCreepMemory;
         //远程运输
         remoteCarry?: RemoteCarryCreepMemory;
+        //元素矿
+        mineralHarvest?: MineralHarvestCreepMemory;
+        //power采集
+        powerHarvest?: PowerHarvestCreepMemory;
+    }
+
+    type InnerShardMemoryObj = {
+        chaimRoomData: {
+            [roomName in RoomName]?: RoomMemory;
+        }
     }
 
     // type LabConfig = {

@@ -2,6 +2,7 @@ import {RoomFacility} from "./RoomFacility";
 import {Move} from "./move";
 import {RoomName} from "./Config";
 import {Spawn, SpawnConfig} from "./Spawn";
+import {Metric} from "./Metric";
 
 export type GroupMemory = {
     creepNameList: string[];
@@ -45,6 +46,7 @@ export abstract class BaseGroup<T extends GroupMemory> {
 
     public run() {
         try {
+            let cpuUsed = Game.cpu.getUsed();
             this.spawnCreeps()
             let nameSet = {}
             let creepList = [];
@@ -69,9 +71,10 @@ export abstract class BaseGroup<T extends GroupMemory> {
             creepList.forEach(creep => {
                 this.runEachCreep(creep);
             });
+            let cpuCost = Game.cpu.getUsed() - cpuUsed;
+            Metric.recordGauge(cpuCost, "type", "group_time_cost", "tag", this.moduleName);
         }catch (e) {
-            this.logError(`run error: ${this.roomName}`);
-            console.log(e);
+            this.logError(`run error: ${this.roomName} ${e.stack}`);
         }
     }
 

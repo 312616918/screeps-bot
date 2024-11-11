@@ -5,7 +5,9 @@ import {Metric} from "./Metric";
 import {checkPos} from "./Util";
 import _ = require("lodash");
 
-export type HarvestMemory = {} & GroupMemory;
+export type HarvestMemory = {
+    lastNeedSpawnTick?: number;
+} & GroupMemory;
 
 
 export type HarvestCreepMemory = {
@@ -16,6 +18,7 @@ export type HarvestCreepMemory = {
     transferObjId?: string;
     linkId?: string;
     containerId?: string;
+    energyIncrease: number;
 }
 
 
@@ -89,8 +92,12 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
     }
 
     protected getSpawnConfigList(): SpawnConfig[] {
+        if (Game.time % 10 != 0) {
+            return [];
+        }
         let workPosList = this.getWorkPosList();
         if (this.memory.creepNameList.length == workPosList.length) {
+            delete this.memory["lastNeedSpawnTick"];
             return [];
         }
         let partConfig = this.getPartConfigByAuto();
@@ -114,7 +121,8 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                     harvest: {
                         targetId: source.id,
                         towerIds: [],
-                        workPosition: workPos
+                        workPosition: workPos,
+                        energyIncrease: partConfig.workNum * 2
                     }
                 },
                 num: 1
@@ -124,11 +132,8 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
     }
 
     protected runEachCreep(creep: Creep) {
-        var target = Game.getObjectById<Source>(creep.memory.harvest.targetId);
-        if (!target) {
-            return;
-        }
-        let pos = creep.memory.harvest.workPosition;
+        let creepMemory = creep.memory.harvest;
+        let pos = creepMemory.workPosition;
         if (pos) {
             let workPos = new RoomPosition(pos.x, pos.y, pos.roomName);
             if (creep.pos.getRangeTo(workPos)) {
@@ -136,32 +141,36 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
                 return;
             }
             let towerList = this.roomFacility.getTowerList();
-            creep.memory.harvest.towerIds = towerList.filter(tower => {
+            creepMemory.towerIds = towerList.filter(tower => {
                 return tower.pos.getRangeTo(workPos) <= 1;
             }).map(tower => tower.id);
             if (this.roomFacility.getRoom().storage && this.roomFacility.getRoom().storage.pos.getRangeTo(workPos) <= 1) {
-                creep.memory.harvest.transferObjId = this.roomFacility.getRoom().storage.id;
+                creepMemory.transferObjId = this.roomFacility.getRoom().storage.id;
             }
             let linkList = this.roomFacility.getLinkList().filter(link => {
                 return link.pos.getRangeTo(workPos) <= 1;
             });
             if (linkList.length > 0) {
-                creep.memory.harvest.linkId = linkList[0].id;
+                creepMemory.linkId = linkList[0].id;
             }
             if (this.roomFacility.getTowerList().length == 0) {
                 let cons = workPos.lookFor(LOOK_STRUCTURES).filter(s => s.structureType == STRUCTURE_CONTAINER);
                 if (cons.length != 0) {
-                    creep.memory.harvest.containerId = cons[0].id;
+                    creepMemory.containerId = cons[0].id;
                 }
             }
-
-            delete creep.memory.harvest["workPosition"];
+            delete creepMemory["workPosition"];
+            this.logInfo(`in position: ${workPos}`);
         }
 
+        let target = Game.getObjectById<Source>(creepMemory.targetId);
+        if (!target) {
+            return;
+        }
 
         // 修理container
-        if (creep.memory.harvest.containerId && Game.time % 10 == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) < 10) {
-            let container = Game.getObjectById<StructureContainer>(creep.memory.harvest.containerId);
+        if (creepMemory.containerId && Game.time % 10 == 0) {
+            let container = Game.getObjectById<StructureContainer>(creepMemory.containerId);
             if (container && container.hits + 200 < container.hitsMax) {
                 creep.repair(container);
                 return;
@@ -174,85 +183,98 @@ export class HarvestGroup extends BaseGroup<HarvestMemory> {
             ticks = target.ticksToRegeneration;
         }
         ticks = Math.min(ticks, creep.ticksToLive);
-        if (this.roomFacility.getController().level <= 1 || target.energy >= ticks * 10) {
+        if (this.roomFacility.getLevel() <= 1 || target.energy >= ticks * 10) {
             creep.harvest(target);
         }
-
-        //填充tower
-        let energyIncrease = creep.getActiveBodyparts(WORK) * 2;
-        let towerIds = creep.memory.harvest.towerIds;
-        let hasTransfer = false;
-        if (towerIds.length > 0) {
-            towerIds.forEach(towerId => {
-                let tower = Game.getObjectById<StructureTower>(towerId);
-                if (!tower) {
-                    return;
-                }
-                if (tower.store.getFreeCapacity(RESOURCE_ENERGY) > 100 && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
-                    creep.transfer(tower, RESOURCE_ENERGY);
-                    hasTransfer = true;
-                }
-            })
-        }
-
-        //填充link
-        if (!hasTransfer && creep.memory.harvest.linkId) {
-            let link = Game.getObjectById<StructureLink>(creep.memory.harvest.linkId);
-            if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
-                creep.transfer(link, RESOURCE_ENERGY);
-                hasTransfer = true;
-            }
-        }
-
-        //填充其他
-        if (!hasTransfer && creep.memory.harvest.transferObjId) {
-            let transferObj = Game.getObjectById<StructureStorage>(creep.memory.harvest.transferObjId);
-            if (transferObj
-                && transferObj.store.getFreeCapacity(RESOURCE_ENERGY) > 100
-                && creep.store.getFreeCapacity(RESOURCE_ENERGY) <= energyIncrease) {
-                creep.transfer(transferObj, RESOURCE_ENERGY);
-                hasTransfer = true;
-            }
-        }
+        this.transformEnergy(creep);
 
     }
 
     protected beforeRecycle(creepMemory: CreepMemory): void {
     }
 
+    private transformEnergy(creep: Creep) {
+        let creepMemory = creep.memory.harvest;
+        //填充tower
+        let energyIncrease = creepMemory.energyIncrease;
+        if (!energyIncrease) {
+            creepMemory.energyIncrease = energyIncrease = creep.getActiveBodyparts(WORK) * 2;
+        }
+        // energyIncrease *= 2;
+        // if (Game.time % 2 != 0) {
+        //     return;
+        // }
+        if(creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0){
+            return;
+        }
+        let amount = creep.store.getCapacity();
+
+        if (creepMemory.towerIds.length > 0) {
+            for (const towerId of creepMemory.towerIds) {
+                let tower = Game.getObjectById<StructureTower>(towerId);
+                if (!tower) {
+                    continue;
+                }
+                if (tower.store.getFreeCapacity(RESOURCE_ENERGY) >= amount) {
+                    creep.transfer(tower, RESOURCE_ENERGY);
+                    return;
+                }
+            }
+        }
+
+        //填充link
+        if (creepMemory.linkId) {
+            let link = Game.getObjectById<StructureLink>(creepMemory.linkId);
+            if (link && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                creep.transfer(link, RESOURCE_ENERGY);
+                return;
+            }
+        }
+
+        //填充其他
+        if (creepMemory.transferObjId) {
+            let transferObj = Game.getObjectById<StructureStorage>(creepMemory.transferObjId);
+            if (transferObj && transferObj.store.getFreeCapacity(RESOURCE_ENERGY) > 100) {
+                creep.transfer(transferObj, RESOURCE_ENERGY);
+            }
+        }
+    }
+
     private getPartConfigByAuto(): CreepPartConfig {
         if (this.roomFacility.isInLowEnergy()) {
             return null;
         }
+        let shouldMin = false;
+        //最多等待100tick，如果长期无法满足，使用最小配置
+        if (this.memory.lastNeedSpawnTick && Game.time - this.memory.lastNeedSpawnTick > 100) {
+            shouldMin = true;
+            this.logInfo("should min");
+        }
+        if (!this.memory.lastNeedSpawnTick) {
+            this.memory.lastNeedSpawnTick = Game.time;
+        }
+
         let result: CreepPartConfig = {};
         let energyAmount = this.roomFacility.getCapacityEnergy();
-        result.workNum = 2;
-        result.carryNum = 1;
-        result.moveNum = 1;
-
-        //4 work
-        if (energyAmount >= 4 * 100 + 2 * 50 + 1 * 50) {
-            result.workNum = 4;
-            result.carryNum = 2;
-            result.moveNum = 1;
+        if (shouldMin) {
+            energyAmount = this.roomFacility.getAvailableEnergy();
         }
-        //5 work
-        if (energyAmount >= 5 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 5;
-            result.carryNum = 2;
+        let startWorkerNum = 10;
+        for (let i = startWorkerNum; i > 1; i--) {
+            result.workNum = i;
+            result.carryNum = 4;
             result.moveNum = 2;
+            if (result.workNum < 3) {
+                result.carryNum = 1;
+            }
+            if (result.workNum < 5) {
+                result.moveNum = 1;
+            }
+            if (this.getPartConfigCost(result) <= energyAmount) {
+                return result;
+            }
         }
-        //10 work
-        if (energyAmount >= 10 * 100 + 2 * 50 + 2 * 50) {
-            result.workNum = 10;
-            result.carryNum = 2;
-            result.moveNum = 2;
-        }
-        if (!result.workNum) {
-            return null;
-        }
-        return result;
+        return null;
     }
 
     private getPartConfigByConfig(): CreepPartConfig {

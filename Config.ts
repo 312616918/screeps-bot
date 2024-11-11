@@ -43,8 +43,22 @@ export enum RoomName {
     E15N13 = "E15N13",
     E21N9 = "E21N9",
     E31N9 = "E31N9",
-    E34N8= "E34N8",
+    E34N8 = "E34N8",
     E35N7 = "E35N7",
+    E5N11 = "E5N11",
+}
+
+export enum ShardName {
+    SHARD0 = "shard0",
+    SHARD1 = "shard1",
+    SHARD2 = "shard2",
+    SHARD3 = "shard3",
+}
+
+export const ROOM_SHARD_MAP: {
+    [roomName in RoomName]?: ShardName
+} = {
+    [RoomName.E5N11]: ShardName.SHARD2,
 }
 
 export const availableRoomName: RoomName[] = [
@@ -86,6 +100,8 @@ export const availableRoomName: RoomName[] = [
     RoomName.E31N9,
     RoomName.E34N8,
     RoomName.E35N7,
+    // shard2
+    // RoomName.E5N11,
 ]
 
 export const directionBiasMap = {
@@ -136,6 +152,9 @@ type RoomConfig = {
     harvest: {
         workPosList: InnerPosition[];
     },
+    mineralHarvest?: {
+        workPos: InnerPosition;
+    }
     upgrade: {
         workNum: number;
         carryNum?: number;
@@ -649,7 +668,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 29,
                 y: 28,
-            },{
+            }, {
                 x: 46,
                 y: 15,
             }]
@@ -671,7 +690,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 34,
                 y: 29,
-            },{
+            }, {
                 x: 41,
                 y: 17,
             }]
@@ -712,7 +731,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 23,
                 y: 43,
-            },{
+            }, {
                 x: 37,
                 y: 43,
             }]
@@ -734,7 +753,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 27,
                 y: 27,
-            },{
+            }, {
                 x: 46,
                 y: 30,
             }]
@@ -794,7 +813,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 35,
                 y: 36,
-            },{
+            }, {
                 x: 35,
                 y: 44,
             }]
@@ -816,7 +835,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 14,
                 y: 31,
-            },{
+            }, {
                 x: 24,
                 y: 40,
             }]
@@ -838,7 +857,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 40,
                 y: 13,
-            },{
+            }, {
                 x: 40,
                 y: 17,
             }]
@@ -860,7 +879,7 @@ export const roomConfigMap: {
             workPosList: [{
                 x: 7,
                 y: 20,
-            },{
+            }, {
                 x: 4,
                 y: 38,
             }]
@@ -873,19 +892,27 @@ export const roomConfigMap: {
             }]
         }
     },
+
+
     [RoomName.E9N9]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 26,
                 y: 29,
-            },{
+            }, {
                 x: 46,
                 y: 17,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 22,
+                y: 34
+            }
         },
         upgrade: {
             workNum: 1,
@@ -898,16 +925,22 @@ export const roomConfigMap: {
     [RoomName.E11N11]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 29,
                 y: 23,
-            },{
+            }, {
                 x: 44,
                 y: 43,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 25,
+                y: 40
+            }
         },
         upgrade: {
             workNum: 1,
@@ -920,16 +953,22 @@ export const roomConfigMap: {
     [RoomName.E9N8]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 27,
                 y: 32,
-            },{
+            }, {
                 x: 4,
                 y: 37,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 36,
+                y: 28
+            }
         },
         upgrade: {
             workNum: 1,
@@ -942,16 +981,22 @@ export const roomConfigMap: {
     [RoomName.E8N9]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 7,
                 y: 12,
-            },{
+            }, {
                 x: 19,
                 y: 42,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 22,
+                y: 24
+            }
         },
         upgrade: {
             workNum: 1,
@@ -964,16 +1009,22 @@ export const roomConfigMap: {
     [RoomName.E5N8]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 42,
                 y: 14,
-            },{
+            }, {
                 x: 19,
                 y: 12,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 8,
+                y: 2
+            }
         },
         upgrade: {
             workNum: 1,
@@ -986,16 +1037,22 @@ export const roomConfigMap: {
     [RoomName.E3N8]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 19,
                 y: 41,
-            },{
+            }, {
                 x: 17,
                 y: 43,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 12,
+                y: 13
+            }
         },
         upgrade: {
             workNum: 1,
@@ -1008,16 +1065,22 @@ export const roomConfigMap: {
     [RoomName.E9N6]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 14,
                 y: 26,
-            },{
+            }, {
                 x: 14,
                 y: 31,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 2,
+                y: 17
+            }
         },
         upgrade: {
             workNum: 1,
@@ -1030,16 +1093,22 @@ export const roomConfigMap: {
     [RoomName.E15N13]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 16,
                 y: 17,
-            },{
+            }, {
                 x: 14,
                 y: 23,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 22,
+                y: 17
+            }
         },
         upgrade: {
             workNum: 1,
@@ -1052,7 +1121,7 @@ export const roomConfigMap: {
     [RoomName.E21N9]: {
         carry: {
             partNum: 2,
-            carryNum: 6,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
@@ -1083,23 +1152,29 @@ export const roomConfigMap: {
             workNum: 1,
             workPosList: [{
                 x: 37,
-                y: 21
+                y: 20
             }]
         }
     },
     [RoomName.E34N8]: {
         carry: {
             partNum: 1,
-            carryNum: 4,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 32,
                 y: 39,
-            },{
+            }, {
                 x: 7,
                 y: 8,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 15,
+                y: 4
+            }
         },
         upgrade: {
             workNum: 1,
@@ -1112,13 +1187,41 @@ export const roomConfigMap: {
     [RoomName.E35N7]: {
         carry: {
             partNum: 1,
-            carryNum: 4,
+            carryNum: 2,
         },
         harvest: {
             workPosList: [{
                 x: 12,
                 y: 41,
-            },{
+            }, {
+                x: 26,
+                y: 7,
+            }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 3,
+                y: 45
+            }
+        },
+        upgrade: {
+            workNum: 1,
+            workPosList: [{
+                x: 17,
+                y: 28
+            }]
+        }
+    },
+    [RoomName.E5N11]: {
+        carry: {
+            partNum: 1,
+            carryNum: 2,
+        },
+        harvest: {
+            workPosList: [{
+                x: 12,
+                y: 41,
+            }, {
                 x: 26,
                 y: 7,
             }]
@@ -1326,7 +1429,7 @@ export const ALL_CHAIM_CONFIG: {
     },
     [RoomName.W2N18]: {
         spawnRoom: RoomName.W1N8,
-        milestoneList: ["W0N8", "W0N19", "W1N19","W2N19"]
+        milestoneList: ["W0N8", "W0N19", "W1N19", "W2N19"]
     },
     [RoomName.W2N22]: {
         spawnRoom: RoomName.E1N13,
@@ -1358,19 +1461,19 @@ export const ALL_CHAIM_CONFIG: {
     },
     [RoomName.E2N14]: {
         spawnRoom: RoomName.E3N14,
-        milestoneList: ["E2N14_44_45","E2N14_12_45"]
+        milestoneList: ["E2N14_44_45", "E2N14_12_45"]
     },
     [RoomName.E2N12]: {
         spawnRoom: RoomName.E5N13,
-        milestoneList: ["E4N13","E3N13","E2N13"]
+        milestoneList: ["E4N13", "E3N13", "E2N13"]
     },
     [RoomName.E5N19]: {
         spawnRoom: RoomName.E5N13,
-        milestoneList: ["E5N14_20_38","E5N14_25_21","E5N15","E5N16_36_21","E5N16_21_2"]
+        milestoneList: ["E5N14_20_38", "E5N14_25_21", "E5N15", "E5N16_36_21", "E5N16_21_2"]
     },
     [RoomName.E6N18]: {
         spawnRoom: RoomName.E5N13,
-        milestoneList: ["E5N14_20_38","E5N14_25_21","E5N15","E5N16_36_21","E5N16_21_2"]
+        milestoneList: ["E5N14_20_38", "E5N14_25_21", "E5N15", "E5N16_36_21", "E5N16_21_2"]
     },
     [RoomName.E11N11]: {
         spawnRoom: RoomName.E9N9,
@@ -1416,18 +1519,22 @@ export const ALL_CHAIM_CONFIG: {
         spawnRoom: RoomName.E31N9,
         milestoneList: ["E30N9_32_48", "E30N5_48_7", "E31N5_5_1", "E31N6_5_48", "E32N6_2_13", "E34N6_1_34", "E34N6_30_4", "E34N7_48_17"]
     },
+    [RoomName.E5N11]: {
+        spawnRoom: RoomName.E9N9,
+        milestoneList: ["E10N10_30_44", "shard2_E5N10"]
+    },
 }
 
 export type RemoteCarryConfigItem = {
-    sourceId:string;
-    targetId:string;
+    sourceId: string;
+    targetId: string;
 }
 
 export const REMOTE_CARRY_CONFIG: {
     [roomName in RoomName]?: RemoteCarryConfigItem[];
 } = {
-    [RoomName.E9N9] : [{
-        sourceId: "66507838659b91050b2f157b",
+    [RoomName.E9N9]: [{
+        sourceId: "64df32d245d7ba43f22192c4",
         targetId: "67129f01ef49630e78cf4520"
     }]
 }
@@ -1443,13 +1550,53 @@ const REMOTE_PATH_CONFIG_LIST: RemotePathConfigItem[] = [
         sourceRoomName: RoomName.E9N9,
         targetRoomName: RoomName.E11N11,
         milestoneList: ["E11N10_38_1"]
+    }, {
+        sourceRoomName: RoomName.E9N9,
+        targetRoomName: RoomName.E9N6,
+        milestoneList: ["E10N9", "E10N6"]
+    }, {
+        sourceRoomName: RoomName.E9N9,
+        targetRoomName: RoomName.E15N13,
+        milestoneList: ["E11N10", "E14N10", "E14N12_23_47", "E14N13"]
     }
 ]
 
-export const REMOTE_PATH_CONFIG_DICT:{
-    [key:string] : RemotePathConfigItem
+export const REMOTE_PATH_CONFIG_DICT: {
+    [key: string]: RemotePathConfigItem
 } = {}
 REMOTE_PATH_CONFIG_LIST.forEach((item) => {
     let key = item.sourceRoomName + "_" + item.targetRoomName;
     REMOTE_PATH_CONFIG_DICT[key] = item
 });
+
+
+export type DispatchItem = {
+    resourceType: ResourceConstant;
+    targetRoomName: RoomName;
+    // 目标房间terminal中的最大数量，高于此值会转移到storage
+    targetTerminalAmount: number;
+    // 目标房间资源数量，高于这个值，停止传输
+    targetAmount: number;
+    // 来源房间需要保留的数量，低于这个值停止供应
+    sourceKeepAmount: number;
+    // 不提供供应的房间列表
+    noSourceRoomList: RoomName[];
+}
+
+export const DISPATCH_CONFIG_LIST: DispatchItem[] = [
+    {
+        resourceType: RESOURCE_ENERGY,
+        targetRoomName: RoomName.E9N9,
+        targetTerminalAmount: 50000,
+        targetAmount: 700000,
+        sourceKeepAmount: 300000,
+        noSourceRoomList: []
+    }
+]
+
+export const OUTER_HARVEST_CONFIG: {
+    [roomName in RoomName]?: string[]
+} = {
+    [RoomName.E9N9]: ["E10N13", "E10N12", "E10N11", "E10N10", "E10N9", "E10N8", "E10N7",
+        "E13N10", "E12N10", "E11N10", "E9N10", "E8N10", "E7N10"]
+}

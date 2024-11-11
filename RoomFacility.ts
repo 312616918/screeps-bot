@@ -6,8 +6,9 @@ export type EventItem = {
     type: "needCarry";
     subType: "input" | "output" | "pickup";
     objId: string;
-    objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension"
-        | "terminal" | "repair" | "tower" | "ruin" | "hostile_structure" | "storage" | "tombstone";
+    objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension" | "mineral"
+        | "terminal" | "repair" | "tower" | "ruin" | "hostile_structure" | "storage" | "tombstone"
+        | "power_spawn" | "observer" | "nuker";
     resourceType: ResourceConstant;
     amount: number;
 }
@@ -17,8 +18,8 @@ export type ClosestRecord = {
     distance: number;
 }
 
-type ObjType = "my_spawn" | "link" | "extension" | "source" | "source_container" | "tower" | "site"
-    | "hostile_creeps" | "damaged_structure" | "dropped_resources" | "my_creeps"
+type ObjType = "my_spawn" | "link" | "extension" | "source" | "source_container" | "mineral"| "mineral_container" | "tower" | "site"
+    | "hostile_creeps" | "damaged_structure" | "dropped_resources" | "my_creeps" | "power_spawn" | "observer" | "nuker"
     | "repair_wall" | "repair_rampart" | "ruin" | "hostile_structure" | "rampart" | "tombstone";
 
 export type RoomFacilityMemory = {
@@ -100,7 +101,7 @@ export class RoomFacility {
             console.log(`room ${this.roomName} not found`)
             return true;
         }
-        // if (this.getController().level <= 3) {
+        // if (this.getLevel() <= 3) {
         //     if (this.getTowerList() || this.getTowerList().length == 0) {
         //         return true;
         //     }
@@ -130,7 +131,7 @@ export class RoomFacility {
             return null;
         }
 
-        let level = this.getController().level;
+        let level = this.getLevel();
         let amount = this.getCapacityEnergy();
         for (let i = DevLevelConfig.length - 1; i >= 0; i--) {
             let c = DevLevelConfig[i];
@@ -157,7 +158,7 @@ export class RoomFacility {
 
     public isInLowEnergy(): boolean {
         //初始等级
-        if (this.getController() && this.getController().level < 2) {
+        if (this.getController() && this.getLevel() < 2) {
             return true;
         }
         //超过400周期，能量不超过300
@@ -247,6 +248,14 @@ export class RoomFacility {
         return this.controller;
     }
 
+    public getLevel(): number {
+        let controller = this.getController();
+        if (!controller) {
+            return 0;
+        }
+        return controller.level;
+    }
+
     public getConstructionSiteList(): ConstructionSite[] {
         return this.getCachedObjList<ConstructionSite>("site");
     }
@@ -257,6 +266,14 @@ export class RoomFacility {
 
     public getSourceContainerList(): StructureContainer[] {
         return this.getCachedObjList<StructureContainer>("source_container");
+    }
+
+    public getMineralList(): Mineral[] {
+        return this.getCachedObjList<Mineral>("mineral");
+    }
+
+    public getMineralContainerList(): StructureContainer[] {
+        return this.getCachedObjList<StructureContainer>("mineral_container");
     }
 
     public getExtensionList(): StructureExtension[] {
@@ -374,6 +391,7 @@ export class RoomFacility {
 
         if (Game.time % 10 == 0) {
             delete this.memory.objIdMap["my_creeps"];
+            delete this.memory.objIdMap["tombstone"];
         }
     }
 
@@ -473,8 +491,7 @@ export class RoomFacility {
     }
 
     public getDamagedStructureList(): Structure[] {
-        let structureList = this.getCachedObjList<Structure>("damaged_structure");
-        return _.filter(structureList, s => s.hits < s.hitsMax);
+        return this.getCachedObjList<Structure>("damaged_structure");
     }
 
     public getDroppedResourceList(): Resource[] {
@@ -503,6 +520,30 @@ export class RoomFacility {
 
     public getTombsList(): Tombstone[] {
         return this.getCachedObjList<Tombstone>("tombstone");
+    }
+
+    public getPowerSpawn(): StructurePowerSpawn {
+        let powerSpawnList = this.getCachedObjList<StructurePowerSpawn>("power_spawn");
+        if (powerSpawnList && powerSpawnList.length > 0) {
+            return powerSpawnList[0];
+        }
+        return null;
+    }
+
+    public getObserver(): StructureObserver {
+        let observerList = this.getCachedObjList<StructureObserver>("observer");
+        if (observerList && observerList.length > 0) {
+            return observerList[0];
+        }
+        return null;
+    }
+
+    public getNuker(): StructureNuker {
+        let nukerList = this.getCachedObjList<StructureNuker>("nuker");
+        if (nukerList && nukerList.length > 0) {
+            return nukerList[0];
+        }
+        return null;
     }
 
     private initLowEnergyStatus() {
@@ -540,7 +581,7 @@ export class RoomFacility {
             return [];
         }
 
-        let findObjList: Structure[] | Source[] | ConstructionSite[] | Creep[] | Resource[] | Ruin[] | Tombstone[] = [];
+        let findObjList: Structure[] | Source[] | ConstructionSite[] | Creep[] | Resource[] | Ruin[] | Tombstone[] | Mineral[] = [];
         switch (objType) {
             case "my_spawn":
                 findObjList = this.room.find(FIND_MY_SPAWNS);
@@ -554,6 +595,16 @@ export class RoomFacility {
                         return s.structureType == STRUCTURE_CONTAINER && s.pos.findInRange(FIND_SOURCES, 1).length > 0;
                     }
                 })
+                break;
+            case "mineral":
+                findObjList = this.room.find(FIND_MINERALS);
+                break;
+            case "mineral_container":
+                findObjList = this.room.find<StructureContainer>(FIND_STRUCTURES, {
+                    filter: (s) => {
+                        return s.structureType == STRUCTURE_CONTAINER && s.pos.findInRange(FIND_MINERALS, 1).length > 0;
+                    }
+                });
                 break;
             case "extension":
                 findObjList = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
@@ -591,7 +642,7 @@ export class RoomFacility {
                         if (structure.structureType == STRUCTURE_RAMPART) {
                             return false;
                         }
-                        return structure.hits < 20000;
+                        return structure.hits < 20000 && structure.hits < structure.hitsMax;
                     }
                 })
                 break;
@@ -640,6 +691,27 @@ export class RoomFacility {
                 break;
             case "tombstone":
                 findObjList = this.room.find(FIND_TOMBSTONES);
+                break;
+            case "power_spawn":
+                findObjList = this.room.find(FIND_MY_STRUCTURES, {
+                    filter: (s) => {
+                        return s.structureType == STRUCTURE_POWER_SPAWN;
+                    }
+                });
+                break;
+            case "observer":
+                findObjList = this.room.find(FIND_MY_STRUCTURES, {
+                    filter: (s) => {
+                        return s.structureType == STRUCTURE_OBSERVER;
+                    }
+                });
+                break;
+            case "nuker":
+                findObjList = this.room.find(FIND_MY_STRUCTURES, {
+                    filter: (s) => {
+                        return s.structureType == STRUCTURE_NUKER;
+                    }
+                });
                 break;
             default:
                 console.log(`unk type ${objType}`);

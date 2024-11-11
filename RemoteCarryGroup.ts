@@ -59,11 +59,11 @@ export class RemoteCarryGroup extends BaseGroup<RemoteCarryMemory> {
 
         let energyAmount = this.roomFacility.getCapacityEnergy();
         let partNum = 0;
-        let startNum = 1;
-        let num = 1;
+        let startNum = 10;
+        let num = 4;
         for (let i = startNum; i > -1; i--) {
             partNum = i;
-            if (partNum * 150 <= energyAmount) {
+            if (partNum * 200 <= energyAmount) {
                 break;
             }
         }
@@ -71,7 +71,7 @@ export class RemoteCarryGroup extends BaseGroup<RemoteCarryMemory> {
             return null;
         }
         let body = [].concat(_.times(partNum * 2, () => CARRY),
-            _.times(partNum, () => MOVE));
+            _.times(partNum * 2, () => MOVE));
         return [
             {
                 body: body,
