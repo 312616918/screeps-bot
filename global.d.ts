@@ -1,7 +1,7 @@
 import {GroupCreepMemory} from "./BaseGroup";
 import {RoomMemory} from "./RoomController";
 import {CarryCreepMemory} from "./CarryGroup";
-import {MoveCreepMemory, RemoteMoveCreepMemory} from "./move";
+import {MoveCreepMemory, RemoteMoveCreepMemory} from "./Move";
 import {HarvestCreepMemory} from "./HarvestGroup";
 import {UpgradeCreepMemory} from "./UpgradeGroup";
 import {RoomName} from "./Config";

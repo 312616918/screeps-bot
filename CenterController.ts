@@ -14,7 +14,7 @@ export class CenterController {
             let roomController = roomControllerList[i];
             try {
                 let bucket = Game.cpu.bucket;
-                if (bucket < 1000 && i > 2 && !this.mustKeepRunning(roomController)) {
+                if (bucket < 5000 && i > 2 && !this.mustKeepRunning(roomController)) {
                     Metric.recordCount(1, "type", "room_stop", "room", roomController.getRoomName())
                     continue;
                 }

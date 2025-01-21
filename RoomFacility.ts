@@ -8,7 +8,7 @@ export type EventItem = {
     objId: string;
     objType: "spawn" | "builder" | "source" | "drop" | "upgrader" | "extension" | "mineral"
         | "terminal" | "repair" | "tower" | "ruin" | "hostile_structure" | "storage" | "tombstone"
-        | "power_spawn" | "observer" | "nuker";
+        | "power_spawn" | "observer" | "nuker" | "factory";
     resourceType: ResourceConstant;
     amount: number;
 }
@@ -20,7 +20,7 @@ export type ClosestRecord = {
 
 type ObjType = "my_spawn" | "link" | "extension" | "source" | "source_container" | "mineral"| "mineral_container" | "tower" | "site"
     | "hostile_creeps" | "damaged_structure" | "dropped_resources" | "my_creeps" | "power_spawn" | "observer" | "nuker"
-    | "repair_wall" | "repair_rampart" | "ruin" | "hostile_structure" | "rampart" | "tombstone";
+    | "repair_wall" | "repair_rampart" | "ruin" | "hostile_structure" | "rampart" | "tombstone" | "factory";
 
 export type RoomFacilityMemory = {
     // spawnNameList: string[];
@@ -278,6 +278,14 @@ export class RoomFacility {
 
     public getExtensionList(): StructureExtension[] {
         return this.getCachedObjList<StructureExtension>("extension");
+    }
+
+    public getFactory(): StructureFactory {
+        let factoryList = this.getCachedObjList<StructureFactory>("factory");
+        if (factoryList && factoryList.length > 0) {
+            return factoryList[0];
+        }
+        return null;
     }
 
     public getStorage(): StructureStorage {
@@ -710,6 +718,13 @@ export class RoomFacility {
                 findObjList = this.room.find(FIND_MY_STRUCTURES, {
                     filter: (s) => {
                         return s.structureType == STRUCTURE_NUKER;
+                    }
+                });
+                break;
+            case "factory":
+                findObjList = this.room.find(FIND_MY_STRUCTURES, {
+                    filter: (s) => {
+                        return s.structureType == STRUCTURE_FACTORY;
                     }
                 });
                 break;

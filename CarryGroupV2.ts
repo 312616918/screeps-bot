@@ -403,9 +403,9 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         let partNum = 0;
         let startNum = 8;
         let num = 2;
-        // if(this.roomName == RoomName.E9N9){
-        //     num = 3;
-        // }
+        if(this.roomName == RoomName.E9N9){
+            num = 3;
+        }
         if (this.memory.creepNameList.length >= num) {
             return [];
         }

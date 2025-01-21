@@ -1,5 +1,5 @@
 import {Metric} from "./Metric";
-import {MoveMemory} from "./move";
+import {MoveMemory} from "./Move";
 import {RoomName} from "./Config";
 
 

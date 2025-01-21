@@ -1129,6 +1129,12 @@ export const roomConfigMap: {
                 y: 44,
             }]
         },
+        mineralHarvest: {
+            workPos: {
+                x: 8,
+                y: 47
+            }
+        },
         upgrade: {
             workNum: 1,
             workPosList: [{
@@ -1147,6 +1153,12 @@ export const roomConfigMap: {
                 x: 39,
                 y: 18,
             }]
+        },
+        mineralHarvest: {
+            workPos: {
+                x: 32,
+                y: 37
+            }
         },
         upgrade: {
             workNum: 1,
@@ -1558,6 +1570,11 @@ const REMOTE_PATH_CONFIG_LIST: RemotePathConfigItem[] = [
         sourceRoomName: RoomName.E9N9,
         targetRoomName: RoomName.E15N13,
         milestoneList: ["E11N10", "E14N10", "E14N12_23_47", "E14N13"]
+    }, {
+        sourceRoomName: RoomName.E3N8,
+        targetRoomName: RoomName.W1N1,
+        milestoneList: ["E3N7_13_17", "E3N6_22_48", "E3N5_2_31", "E3N4_26_36", "E3N3_26_46",
+            "E3N2_1_18", "E2N2_2_12", "E1N2_2_45", "E0N2_14_48", "W0N1_2_11"]
     }
 ]
 
@@ -1599,4 +1616,30 @@ export const OUTER_HARVEST_CONFIG: {
 } = {
     [RoomName.E9N9]: ["E10N13", "E10N12", "E10N11", "E10N10", "E10N9", "E10N8", "E10N7",
         "E13N10", "E12N10", "E11N10", "E9N10", "E8N10", "E7N10"]
+}
+
+export const GLOBAL_NUMBER_CONFIG={
+    // storage预留空间
+    storageReservedAmount: 100_000,
+    // terminal预留空间
+    terminalReservedAmount: 100_000,
+    // terminal每次发送数量
+    terminalBatchAmount: 10_000,
+
+    // upgrade降级储量阈值
+    upgradeDowngradeAmount: 400_000,
+    // upgrade升级tick阈值
+    upgradeReservedTick: 20_000,
+    // upgrade必须使用的上限
+    upgradeMaxAmount: 950_000,
+    upgradeMaxTriggerEnergyAmount: 300_000,
+
+    // 刷墙目标hit
+    wallTargetHit: 20_000_000,
+    // 刷墙批次
+    wallBatchHit: 20_000,
+
+    // 使用power的最低energy储量
+    powerMinEnergyAmount: 400_000,
+
 }

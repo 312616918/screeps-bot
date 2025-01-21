@@ -1,5 +1,5 @@
 import {RoomFacility} from "./RoomFacility";
-import {Move} from "./move";
+import {Move} from "./Move";
 import {RoomName} from "./Config";
 import {Spawn, SpawnConfig} from "./Spawn";
 import {Metric} from "./Metric";

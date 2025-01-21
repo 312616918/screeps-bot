@@ -1,5 +1,5 @@
 import {BaseGroup, CreepPartConfig, GroupMemory} from "./BaseGroup";
-import {roomConfigMap, RoomName} from "./Config";
+import {GLOBAL_NUMBER_CONFIG, roomConfigMap, RoomName} from "./Config";
 import {SpawnConfig} from "./Spawn";
 import _ = require("lodash");
 
@@ -43,15 +43,20 @@ export class UpgradeGroup extends BaseGroup<UpgradeMemory> {
 
         // 8级别不掉级别即可
         if (this.roomFacility.getLevel() >= 8) {
-            if (storage && storage.store.getUsedCapacity(RESOURCE_ENERGY) < 800000) {
-                // 10k tick升级一次，保证不降级
-                if (!this.memory.lastUpgradeTime) {
-                    this.memory.lastUpgradeTime = Game.time;
-                }
-                if (Game.time - this.memory.lastUpgradeTime < 10000 && this.roomFacility.getController().ticksToDowngrade > 20000) {
-                    return [];
-                }
+            // 必须升级，释放资源
+            let mustUpgrade = storage
+                && storage.store.getUsedCapacity() > GLOBAL_NUMBER_CONFIG.upgradeMaxAmount
+                && storage.store.getUsedCapacity(RESOURCE_ENERGY) > GLOBAL_NUMBER_CONFIG.upgradeMaxTriggerEnergyAmount;
+            if (!mustUpgrade && this.roomFacility.getController().ticksToDowngrade > GLOBAL_NUMBER_CONFIG.upgradeReservedTick) {
+                return [];
             }
+        }
+
+        // 资源不足，暂停升级
+        if (storage
+            && storage.store.getUsedCapacity(RESOURCE_ENERGY) < GLOBAL_NUMBER_CONFIG.upgradeDowngradeAmount
+            && this.roomFacility.getController().ticksToDowngrade > GLOBAL_NUMBER_CONFIG.upgradeReservedTick) {
+            return [];
         }
 
 

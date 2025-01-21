@@ -117,6 +117,9 @@ export class PowerHarvestGroup extends BaseGroup<PowerHarvestMemory> {
             if (workPosList.length == 0) {
                 logError("no workPos", task.targetPos.roomName, powerBank.id);
             }
+            // 一个足够
+            workPosList = workPosList.slice(0, 1);
+
             task.harvestNum = 2;
             if (workPosList.length == 1) {
                 task.harvestNum = 1;
@@ -144,6 +147,7 @@ export class PowerHarvestGroup extends BaseGroup<PowerHarvestMemory> {
     protected runHarvest(creep: Creep) {
         let creepMemory = creep.memory.powerHarvest;
         if (creepMemory.roleFinished) {
+            creep.suicide();
             return;
         }
         let task = this.memory.taskMap[creepMemory.taskId];
@@ -186,6 +190,7 @@ export class PowerHarvestGroup extends BaseGroup<PowerHarvestMemory> {
         let task = this.memory.taskMap[creepMemory.taskId];
         if (!task) {
             this.logError(`not found task for ${creepMemory.taskId}`)
+            creep.suicide();
             return;
         }
         if (task.status == "finished") {
@@ -199,7 +204,7 @@ export class PowerHarvestGroup extends BaseGroup<PowerHarvestMemory> {
             return;
         }
         let harvestCreep = Game.creeps[creepMemory.healName];
-        if (!harvestCreep) {
+        if (!harvestCreep || harvestCreep.pos.roomName != task.targetPos.roomName) {
             return;
         }
         if (creep.pos.getRangeTo(harvestCreep) > 1) {
@@ -284,6 +289,10 @@ export class PowerHarvestGroup extends BaseGroup<PowerHarvestMemory> {
             return;
         }
         if (creep.pos.getRangeTo(targetPower) > 1) {
+            // 50%的概率不走，避免整体陷入状态循环
+            if (Math.random() > 0.5){
+                return;
+            }
             this.moveNormal(creep, targetPower.pos, 1);
         }
         creep.pickup(targetPower);

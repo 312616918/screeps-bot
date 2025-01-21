@@ -1,5 +1,5 @@
 import {CarryGroup, CarryMemory} from "./CarryGroup";
-import {Move, MoveMemory} from "./move";
+import {Move, MoveMemory} from "./Move";
 import {UpgradeGroup, UpgradeMemory} from "./UpgradeGroup";
 import {HarvestGroup, HarvestMemory} from "./HarvestGroup";
 import {RoomFacility, RoomFacilityMemory} from "./RoomFacility";
@@ -16,6 +16,7 @@ import {DefenderGroup, DefenderMemory} from "./DefenderGroup";
 import {RemoteCarryGroup, RemoteCarryMemory} from "./RemoteCarryGroup";
 import {MineralHarvestGroup, MineralHarvestMemory} from "./MineralHarvestGroup";
 import {PowerHarvestGroup, PowerHarvestMemory} from "./PowerHarvestGroup";
+import {FactoryController, FactoryMemory} from "./FactoryController";
 
 
 export type RoomMemory = {
@@ -32,6 +33,7 @@ export type RoomMemory = {
     remoteCarry: RemoteCarryMemory;
     mineralHarvest: MineralHarvestMemory;
     powerHarvest: PowerHarvestMemory;
+    factory: FactoryMemory;
 }
 
 type StructureWithStore = {
@@ -56,6 +58,7 @@ export class RoomController {
     private defenderGroup: DefenderGroup;
     private remoteCarryGroup: RemoteCarryGroup;
     private powerHarvestGroup: PowerHarvestGroup;
+    private factoryController: FactoryController;
     private spawn: Spawn;
     private chaimMode: boolean;
 
@@ -106,6 +109,7 @@ export class RoomController {
         this.defenderGroup = new DefenderGroup(this.move, this.roomMemory.defend, this.roomFacility, this.spawn);
         this.remoteCarryGroup = new RemoteCarryGroup(this.move, this.roomMemory.remoteCarry, this.roomFacility, this.spawn);
         this.powerHarvestGroup = new PowerHarvestGroup(this.move, this.roomMemory.powerHarvest, this.roomFacility, this.spawn);
+        this.factoryController = new FactoryController(this.roomMemory.factory, this.roomFacility);
     }
 
     public run() {
@@ -130,6 +134,7 @@ export class RoomController {
 
         this.runTower();
         this.runPowerSpawn();
+        this.factoryController.run();
 
         this.harvestGroup.run();
         this.mineralHarvestGroup.run();
@@ -248,7 +253,7 @@ export class RoomController {
                         subType: "output",
                         objId: container.id,
                         resourceType: resourceType as ResourceConstant,
-                        amount: 1000,
+                        amount: 800,
                         objType: "source"
                     })
                 }
@@ -264,7 +269,7 @@ export class RoomController {
                         subType: "output",
                         objId: container.id,
                         resourceType: resourceType as ResourceConstant,
-                        amount: 1000,
+                        amount: 800,
                         objType: "mineral"
                     });
                 }
@@ -512,7 +517,7 @@ export class RoomController {
                     priority = 2;
                     increase = 10;
                 }
-                if (event.objType == "spawn" || event.objType == "extension") {
+                if (event.objType == "spawn" || event.objType == "extension" ||event.objType == "power_spawn") {
                     priority = 3;
                 }
                 if (event.objType == "drop") {
@@ -616,6 +621,11 @@ export class RoomController {
                 creepNameList: []
             }
         }
+        if(!this.roomMemory.factory){
+            this.roomMemory.factory = {
+                runningTask: null
+            }
+        }
     }
 
     private runPowerSpawn(): void {
@@ -631,7 +641,7 @@ export class RoomController {
             return;
         }
         let amount = storage.store.getUsedCapacity(RESOURCE_ENERGY);
-        if (amount < 400000) {
+        if (amount < 300000) {
             return;
         }
         powerSpawn.processPower();

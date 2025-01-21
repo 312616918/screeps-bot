@@ -86,6 +86,8 @@ export class DefenderGroup extends BaseGroup<DefenderMemory> {
             creepMemory.safePos = safePos;
         }
         if (creepMemory.status == "attack") {
+            // heal周围
+            // this.healNearBy(creep);
             this.runAttack(creep);
             return;
         }
@@ -94,6 +96,30 @@ export class DefenderGroup extends BaseGroup<DefenderMemory> {
             return;
         }
         this.logError(`defender status error ${creepMemory.status}`);
+    }
+
+    protected healNearBy(creep: Creep) {
+        this.memory.creepNameList.forEach(name => {
+            if (name == creep.name) {
+                return;
+            }
+            let otherCreep = Game.creeps[name];
+            if (!otherCreep) {
+                return;
+            }
+            if (otherCreep.hits >= otherCreep.hitsMax) {
+                return;
+            }
+            let distance = otherCreep.pos.getRangeTo(creep);
+            if (distance <= 3) {
+                creep.rangedHeal(otherCreep);
+                return;
+            }
+            if (distance == 1) {
+                creep.heal(otherCreep);
+                return;
+            }
+        })
     }
 
     protected runAttack(creep: Creep): void {
@@ -131,6 +157,12 @@ export class DefenderGroup extends BaseGroup<DefenderMemory> {
     }
 
     protected runEscape(creep: Creep): void {
+        // 满血
+        if (creep.hits == creep.hitsMax) {
+            creep.memory.defend.status = "idle";
+            return;
+        }
+
         // 跑到安全点，或者攻击范围外
         let safePosList = this.getSafePosList(creep);
         let closedSafePos = creep.pos.findClosestByRange(safePosList);
