@@ -692,6 +692,10 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
         // this.logInfo("arrange", creep.name)
         let creepMemroy = creep.memory.carry_v2;
         let taskArgList: TaskArg[] = [];
+        // 给50周期的间隔，以防无法应对特殊情况
+        let isStorageFull = this.roomFacility.getStorage()
+            && this.roomFacility.getStorage().store.getFreeCapacity() <= 0
+            && Game.time % 100 > 50;
         //1. has resource
         let usedAmount = creep.store.getUsedCapacity();
         if (usedAmount) {
@@ -726,6 +730,12 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                     this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                     return;
                 }
+                //storage已满，drop，空出空间给其他任务
+                if(isStorageFull){
+                    creep.drop(resourceType);
+                    continue;
+                }
+
                 if (!creepMemroy.lastEnergyTick) {
                     creepMemroy.lastEnergyTick = Game.time;
                 }
@@ -798,6 +808,10 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 if (task.carryType != "output" && task.carryType != "pickup") {
                     continue;
                 }
+                //storage已满，不接受其他任务
+                if(isStorageFull){
+                    continue;
+                }
                 if (task.amount <= task.reserved) {
                     continue;
                 }
@@ -812,6 +826,7 @@ export class CarryGroupV2 extends BaseGroup<CarryMemoryV2> {
                 this.takeTask(creep, finalTask.task, finalTask.amount, finalTask.needRec);
                 return;
             }
+
             let storage = this.roomFacility.getStorage();
             for (let taskId in this.memory.taskMap) {
                 let task = this.memory.taskMap[taskId];

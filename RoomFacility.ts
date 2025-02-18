@@ -750,4 +750,13 @@ export class RoomFacility {
         }
         return result;
     }
+
+    public getRoomMineralType():ResourceConstant{
+        //验证元素矿数量
+        let mineralList = this.getMineralList()
+        if (!mineralList || mineralList.length != 1) {
+            return null;
+        }
+        return mineralList[0].mineralType;
+    }
 }

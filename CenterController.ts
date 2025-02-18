@@ -2,8 +2,8 @@ import {availableRoomName, DISPATCH_CONFIG_LIST, RoomName} from "./Config";
 import {RoomController} from "./RoomController";
 import {ExpandController} from "./ExpandController";
 import {Metric} from "./Metric";
-import _ = require("lodash");
 import {Observer} from "./Observer";
+import _ = require("lodash");
 
 
 export class CenterController {
@@ -139,7 +139,7 @@ export class CenterController {
     }
 
     private runTerminal(roomControllerList: RoomController[]) {
-        if (Game.time % 50 != 0) {
+        if (Game.time % 10 != 0) {
             return;
         }
         // terminal至少要有20k energy
@@ -175,43 +175,66 @@ export class CenterController {
             if (!targetController) {
                 return;
             }
-            let terminal = targetController.getRoomFacility().getTerminal();
-            let storage = targetController.getRoomFacility().getStorage();
-            if (!terminal || !storage) {
+            let targetTerminal = targetController.getRoomFacility().getTerminal();
+            let targetStorage = targetController.getRoomFacility().getStorage();
+            if (!targetTerminal || !targetStorage) {
                 return;
             }
-
+            console.log(`dispatch1 ${item.resourceType} to ${item.targetRoomName}`);
             // 转移多余资源
             let limitAmount = item.targetTerminalAmount;
             if (item.resourceType == RESOURCE_ENERGY) {
                 limitAmount = Math.min(20000, item.targetTerminalAmount) + 10000;
             }
-            let terminalAmount = terminal.store.getUsedCapacity(item.resourceType);
-            let outAmount = terminalAmount - limitAmount;
-            if (outAmount > 0 && storage.store.getFreeCapacity() > 100000) {
+            let targetTerminalAmount = targetTerminal.store.getUsedCapacity(item.resourceType);
+            let outAmount = targetTerminalAmount - limitAmount;
+            let storageLimit = 100_100;
+            if (item.resourceType == RESOURCE_ENERGY
+                && item.targetRoomName == RoomName.E9N9) {
+                storageLimit = 100;
+            }
+            if (item.resourceType == RESOURCE_POWER
+                && item.targetRoomName == RoomName.E9N6) {
+                storageLimit = 100;
+            }
+            if (outAmount > 0 && targetStorage.store.getFreeCapacity() > storageLimit) {
                 targetController.getRoomFacility().submitEvent({
                     type: "needCarry",
                     subType: "output",
                     resourceType: item.resourceType,
-                    objId: terminal.id,
+                    objId: targetTerminal.id,
                     amount: outAmount,
                     objType: "terminal"
                 })
                 return;
             }
+            console.log(`dispatch2 ${item.resourceType} to ${item.targetRoomName}`);
+            //临时，目标power已满
+            let isPowerFull = item.resourceType == RESOURCE_ENERGY
+                && item.targetRoomName == RoomName.E9N9
+                && targetController.getRoomFacility().getStorage()
+                && targetController.getRoomFacility().getStorage().store.getFreeCapacity() < 100000
+                && targetController.getRoomFacility().getStorage().store.getUsedCapacity(RESOURCE_POWER) > 400_000;
 
             // 空间不足
-            if (terminal.store.getFreeCapacity() <= 100000
-                || storage.store.getFreeCapacity() <= 100000) {
-                return;
+            if (!isPowerFull) {
+                if (targetTerminal.store.getFreeCapacity() <= 100000
+                    || (item.targetRoomName != RoomName.E9N6 && targetStorage.store.getFreeCapacity() <= 100000)) {
+                    return;
+                }
+            } else {
+                if (targetTerminal.store.getFreeCapacity() <= 10_000) {
+                    return;
+                }
             }
+            console.log(`dispatch3 ${item.resourceType} to ${item.targetRoomName}`);
             // 总量完成
-            let amount = terminalAmount + storage.store.getUsedCapacity(item.resourceType);
+            let amount = targetTerminalAmount + targetStorage.store.getUsedCapacity(item.resourceType);
             if (amount >= item.targetAmount) {
                 return;
             }
 
-
+            console.log(`dispatch4 ${item.resourceType} to ${item.targetRoomName}`);
             // 开始传输
             for (let roomName of availableRoomName) {
                 if (roomName == item.targetRoomName) {
@@ -226,19 +249,21 @@ export class CenterController {
                 if (!sourceTerminal || !sourceStorage) {
                     continue;
                 }
-                let sourceTerminalAmount = terminal.store.getUsedCapacity(item.resourceType);
+                let sourceTerminalAmount = sourceTerminal.store.getUsedCapacity(item.resourceType);
                 let sourceAmount = sourceTerminalAmount + sourceStorage.store.getUsedCapacity(item.resourceType);
                 if (sourceAmount <= item.sourceKeepAmount) {
                     continue;
                 }
                 // terminal有资源，直接send
-                let sendAmount = Math.min(amount, sendMaxBatch);
+                let sendAmount = Math.min(sourceTerminalAmount, sendMaxBatch);
                 let cost = Game.market.calcTransactionCost(sendAmount, roomName, item.targetRoomName);
+                console.log(`${sourceTerminalAmount} ${sendAmount} ${cost}`);
                 if (sourceTerminalAmount > sendAmount + cost) {
                     sourceTerminal.send(item.resourceType, sendAmount, item.targetRoomName);
                     console.log(`send ${sendAmount} ${item.resourceType} from ${roomName} to ${item.targetRoomName}`);
                     continue;
                 }
+                console.log(`dispatch5 ${item.resourceType} to ${item.targetRoomName}`);
                 // terminal没有资源，添加任务
                 sourceController.getRoomFacility().submitEvent({
                     type: "needCarry",

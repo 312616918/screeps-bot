@@ -17,6 +17,7 @@ import {RemoteCarryGroup, RemoteCarryMemory} from "./RemoteCarryGroup";
 import {MineralHarvestGroup, MineralHarvestMemory} from "./MineralHarvestGroup";
 import {PowerHarvestGroup, PowerHarvestMemory} from "./PowerHarvestGroup";
 import {FactoryController, FactoryMemory} from "./FactoryController";
+import {MarkerController} from "./MarkerController";
 
 
 export type RoomMemory = {
@@ -59,6 +60,7 @@ export class RoomController {
     private remoteCarryGroup: RemoteCarryGroup;
     private powerHarvestGroup: PowerHarvestGroup;
     private factoryController: FactoryController;
+    private marketController: MarkerController;
     private spawn: Spawn;
     private chaimMode: boolean;
 
@@ -110,6 +112,7 @@ export class RoomController {
         this.remoteCarryGroup = new RemoteCarryGroup(this.move, this.roomMemory.remoteCarry, this.roomFacility, this.spawn);
         this.powerHarvestGroup = new PowerHarvestGroup(this.move, this.roomMemory.powerHarvest, this.roomFacility, this.spawn);
         this.factoryController = new FactoryController(this.roomMemory.factory, this.roomFacility);
+        this.marketController = new MarkerController(this.carryGroupV2, this.roomFacility);
     }
 
     public run() {
@@ -135,6 +138,7 @@ export class RoomController {
         this.runTower();
         this.runPowerSpawn();
         this.factoryController.run();
+        this.marketController.run();
 
         this.harvestGroup.run();
         this.mineralHarvestGroup.run();
@@ -517,7 +521,7 @@ export class RoomController {
                     priority = 2;
                     increase = 10;
                 }
-                if (event.objType == "spawn" || event.objType == "extension" ||event.objType == "power_spawn") {
+                if (event.objType == "spawn" || event.objType == "extension" || event.objType == "power_spawn") {
                     priority = 3;
                 }
                 if (event.objType == "drop") {
@@ -621,7 +625,7 @@ export class RoomController {
                 creepNameList: []
             }
         }
-        if(!this.roomMemory.factory){
+        if (!this.roomMemory.factory) {
             this.roomMemory.factory = {
                 runningTask: null
             }
@@ -640,8 +644,11 @@ export class RoomController {
         if (!storage) {
             return;
         }
+        // power堆积
+        let powerFull = storage.store.getFreeCapacity() < 10000 && storage.store.getUsedCapacity(RESOURCE_POWER) > 400_000;
+
         let amount = storage.store.getUsedCapacity(RESOURCE_ENERGY);
-        if (amount < 300000) {
+        if (amount < 300000 && !powerFull) {
             return;
         }
         powerSpawn.processPower();

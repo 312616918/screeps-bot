@@ -1608,6 +1608,14 @@ export const DISPATCH_CONFIG_LIST: DispatchItem[] = [
         targetAmount: 700000,
         sourceKeepAmount: 300000,
         noSourceRoomList: []
+    },
+    {
+        resourceType: RESOURCE_POWER,
+        targetRoomName: RoomName.E9N6,
+        targetTerminalAmount: 10000,
+        targetAmount: 100000,
+        sourceKeepAmount: 500000,
+        noSourceRoomList: []
     }
 ]
 
@@ -1641,5 +1649,12 @@ export const GLOBAL_NUMBER_CONFIG={
 
     // 使用power的最低energy储量
     powerMinEnergyAmount: 400_000,
+
+    // 元素矿最大储量，超出会转移到terminal
+    mineralMaxAmount: 300_000,
+    // terminal中元素矿售卖阈值
+    mineralSellAmount: 100_000,
+    // terminal中元素矿售卖批次
+    mineralSellBatch: 10_000,
 
 }
